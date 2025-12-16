@@ -7,21 +7,26 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/material.dart';
 
 import 'package:jamuin/src/app/app.dart';
 
 void main() {
   testWidgets('App boots smoke test', (WidgetTester tester) async {
-    await tester.pumpWidget(const ProviderScope(child: VendoApp()));
+    TestWidgetsFlutterBinding.ensureInitialized();
+    SharedPreferences.setMockInitialValues({});
+
+    await tester.pumpWidget(const ProviderScope(child: JamuinApp()));
 
     // Initial route is Splash.
-    expect(find.text('Vendo'), findsOneWidget);
+    expect(find.text('Jamuin'), findsOneWidget);
 
     // Let the splash delay + route transition complete.
     await tester.pump(const Duration(milliseconds: 1600));
     await tester.pumpAndSettle();
 
-    // Home screen title should still be visible.
-    expect(find.text('Vendo'), findsWidgets);
+    // With no stored session, app should land on Login.
+    expect(find.widgetWithText(AppBar, 'Login'), findsOneWidget);
   });
 }

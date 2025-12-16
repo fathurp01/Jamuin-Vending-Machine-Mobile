@@ -165,9 +165,23 @@ class AdminDashboardScreen extends ConsumerWidget {
                     ],
                   ),
                 ),
-                OutlinedButton(
-                  onPressed: () => context.go('/app/about'),
-                  child: const Text('About'),
+                Column(
+                  children: [
+                    OutlinedButton(
+                      onPressed: () => context.go('/app/admin/stock'),
+                      child: const Text('Manage stock'),
+                    ),
+                    const SizedBox(height: 8),
+                    OutlinedButton(
+                      onPressed: () => context.go('/app/admin/transactions'),
+                      child: const Text('Transactions'),
+                    ),
+                    const SizedBox(height: 8),
+                    OutlinedButton(
+                      onPressed: () => context.go('/app/about'),
+                      child: const Text('About'),
+                    ),
+                  ],
                 ),
               ],
             ),

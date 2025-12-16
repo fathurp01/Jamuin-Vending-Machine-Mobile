@@ -5,6 +5,7 @@ import 'package:maplibre_gl/maplibre_gl.dart';
 import '../../../core/config/public_apis.dart';
 import '../../session/application/session_controller.dart';
 import '../../session/application/session_persistence_providers.dart';
+import 'machine_models.dart';
 import 'machine_providers.dart';
 
 class MapScreen extends ConsumerStatefulWidget {
@@ -71,8 +72,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   Widget build(BuildContext context) {
     final storageAsync = ref.watch(localStorageProvider);
     return storageAsync.when(
-      loading: () => const Scaffold(
-        appBar: AppBar(title: Text('Machines')),
+      loading: () => Scaffold(
+        appBar: AppBar(title: const Text('Machines')),
         body: Center(child: CircularProgressIndicator()),
       ),
       error: (e, __) => Scaffold(
@@ -150,7 +151,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 },
                 onStyleLoadedCallback: () => _addMachineSymbols(machines),
                 myLocationEnabled: false,
-                myLocationTrackingMode: MyLocationTrackingMode.None,
+                myLocationTrackingMode: MyLocationTrackingMode.none,
                 compassEnabled: false,
                 rotateGesturesEnabled: true,
                 tiltGesturesEnabled: false,

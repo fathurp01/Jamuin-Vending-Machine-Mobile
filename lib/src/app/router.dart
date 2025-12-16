@@ -6,6 +6,8 @@ import '../features/about/presentation/about_screen.dart';
 import '../features/auth/presentation/login_screen.dart';
 import '../features/auth/presentation/register_screen.dart';
 import '../features/admin/presentation/admin_dashboard_screen.dart';
+import '../features/admin/presentation/admin_stock_screen.dart';
+import '../features/admin/presentation/admin_transactions_screen.dart';
 import '../features/cart/presentation/cart_screen.dart';
 import '../features/checkout/presentation/checkout_screen.dart';
 import '../features/checkout/presentation/transaction_status_screen.dart';
@@ -109,6 +111,17 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: '/app/admin',
                 builder: (context, state) => const AdminDashboardScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'stock',
+                    builder: (context, state) => const AdminStockScreen(),
+                  ),
+                  GoRoute(
+                    path: 'transactions',
+                    builder: (context, state) =>
+                        const AdminTransactionsScreen(),
+                  ),
+                ],
               ),
             ],
           ),

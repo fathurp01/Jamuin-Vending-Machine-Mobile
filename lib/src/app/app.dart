@@ -4,8 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'router.dart';
 import 'theme/app_theme.dart';
 
-class VendoApp extends ConsumerWidget {
-  const VendoApp({super.key});
+class JamuinApp extends ConsumerWidget {
+  const JamuinApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
