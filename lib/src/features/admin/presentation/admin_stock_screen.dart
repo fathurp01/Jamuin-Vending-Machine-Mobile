@@ -122,7 +122,8 @@ class _AdminStockScreenState extends ConsumerState<AdminStockScreen> {
                   )
                 else
                   DropdownButtonFormField<String>(
-                    value: effectiveMachineId,
+                    key: ValueKey<String?>(effectiveMachineId),
+                    initialValue: effectiveMachineId,
                     decoration: const InputDecoration(
                       labelText: 'Select machine',
                     ),

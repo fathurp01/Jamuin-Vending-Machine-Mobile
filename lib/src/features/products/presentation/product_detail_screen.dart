@@ -40,7 +40,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
               : ref.watch(stockForSelectedMachineProvider(p.id));
           final isOutOfStock = stock != null && stock <= 0;
           final maxQty = stock == null ? 99 : (stock <= 0 ? 1 : stock);
-          final addDisabled = machineId == null || isOutOfStock;
 
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),

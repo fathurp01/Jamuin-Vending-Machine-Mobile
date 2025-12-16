@@ -45,7 +45,7 @@ dependencies:
   dio: ^5.7.0
 
   # Maps (MapTiler via MapLibre)
-  maplibre_gl: ^0.20.0
+  maplibre_gl: ^0.24.1
 
   # Local persistence (session + history)
   shared_preferences: ^2.3.3
