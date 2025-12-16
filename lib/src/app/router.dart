@@ -15,12 +15,16 @@ import '../features/splash/presentation/splash_screen.dart';
 
 class _RouterNotifier extends ChangeNotifier {
   _RouterNotifier(this.ref) {
-    ref.listen<SessionState>(sessionControllerProvider, (_, __) => notifyListeners());
+    ref.listen<SessionState>(
+      sessionControllerProvider,
+      (_, __) => notifyListeners(),
+    );
   }
 
   final Ref ref;
 
-  bool get isAdmin => ref.read(sessionControllerProvider).role == UserRole.admin;
+  bool get isAdmin =>
+      ref.read(sessionControllerProvider).role == UserRole.admin;
 }
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -120,10 +124,20 @@ class AppShell extends ConsumerWidget {
     final isAdmin = session.role == UserRole.admin;
 
     final destinations = <NavigationDestination>[
-      const NavigationDestination(icon: Icon(Icons.home_outlined), label: 'Home'),
+      const NavigationDestination(
+        icon: Icon(Icons.home_outlined),
+        label: 'Home',
+      ),
       const NavigationDestination(icon: Icon(Icons.map_outlined), label: 'Map'),
-      const NavigationDestination(icon: Icon(Icons.shopping_bag_outlined), label: 'Cart'),
-      if (isAdmin) const NavigationDestination(icon: Icon(Icons.admin_panel_settings_outlined), label: 'Admin'),
+      const NavigationDestination(
+        icon: Icon(Icons.shopping_bag_outlined),
+        label: 'Cart',
+      ),
+      if (isAdmin)
+        const NavigationDestination(
+          icon: Icon(Icons.admin_panel_settings_outlined),
+          label: 'Admin',
+        ),
     ];
 
     final currentIndex = () {

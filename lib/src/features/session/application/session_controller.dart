@@ -49,6 +49,5 @@ class SessionController extends Notifier<SessionState> {
   }
 }
 
-final sessionControllerProvider = NotifierProvider<SessionController, SessionState>(
-  SessionController.new,
-);
+final sessionControllerProvider =
+    NotifierProvider<SessionController, SessionState>(SessionController.new);

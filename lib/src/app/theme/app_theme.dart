@@ -23,7 +23,7 @@ final class AppTheme {
     return base.copyWith(
       colorScheme: scheme,
       scaffoldBackgroundColor: scheme.surface,
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         elevation: 0,
         color: scheme.surfaceContainerHighest,
         margin: EdgeInsets.zero,
