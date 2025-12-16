@@ -8,7 +8,8 @@ plugins {
 android {
     namespace = "com.example.jamuin"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    // maplibre_gl requires this NDK version on Android.
+    ndkVersion = "28.1.13356709"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
