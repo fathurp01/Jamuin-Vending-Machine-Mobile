@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-class RegisterScreen extends StatefulWidget {
+import '../application/user_providers.dart';
+import '../domain/user_account.dart';
+import '../../session/application/session_controller.dart';
+
+class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
 
   @override
-  State<RegisterScreen> createState() => _RegisterScreenState();
+  ConsumerState<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _RegisterScreenState extends State<RegisterScreen> {
+class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
 
   final _nameCtrl = TextEditingController();
@@ -34,6 +39,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     setState(() => _submitting = true);
     await Future<void>.delayed(const Duration(milliseconds: 450));
+
+    final account = UserAccount(
+      email: _emailCtrl.text.trim(),
+      displayName: _nameCtrl.text.trim(),
+      password: _passCtrl.text,
+      role: UserRole.customer,
+    );
+    await ref.read(userRepositoryProvider).upsert(account);
+
     if (!mounted) return;
     setState(() => _submitting = false);
 

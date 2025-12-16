@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../application/user_providers.dart';
 import '../../session/application/session_controller.dart';
 import '../../session/application/session_persistence_providers.dart';
 
@@ -15,16 +16,13 @@ class LoginScreen extends ConsumerStatefulWidget {
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  final _nameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
 
-  UserRole _role = UserRole.customer;
   bool _submitting = false;
 
   @override
   void dispose() {
-    _nameCtrl.dispose();
     _emailCtrl.dispose();
     _passCtrl.dispose();
     super.dispose();
@@ -38,22 +36,48 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     setState(() => _submitting = true);
 
-    final name = _nameCtrl.text.trim();
     final email = _emailCtrl.text.trim();
+    final password = _passCtrl.text;
 
-    // UI-only authentication: accept any credentials that pass validation.
+    final users = ref.read(userRepositoryProvider);
+    await users.ensureSeededUsers();
+
+    final account = await users.findByEmail(email);
+    if (!mounted) return;
+
+    if (account == null) {
+      setState(() => _submitting = false);
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Account not found. Please register.')),
+      );
+      return;
+    }
+
+    // Demo-only password check.
+    if (account.password != password) {
+      setState(() => _submitting = false);
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Invalid email or password.')),
+      );
+      return;
+    }
+
     ref
         .read(sessionControllerProvider.notifier)
-        .applyLogin(displayName: name, email: email, role: _role);
+        .applyLogin(
+          displayName: account.displayName,
+          email: account.email,
+          role: account.role,
+        );
 
-    final repo = ref.read(sessionRepositoryProvider);
-    await repo.write(ref.read(sessionControllerProvider));
+    final sessionRepo = ref.read(sessionRepositoryProvider);
+    await sessionRepo.write(ref.read(sessionControllerProvider));
 
     if (!mounted) return;
     setState(() => _submitting = false);
 
     messenger.showSnackBar(const SnackBar(content: Text('Logged in')));
-    router.go(_role == UserRole.admin ? '/app/admin' : '/app/home');
+    router.go(account.role == UserRole.admin ? '/app/admin' : '/app/home');
   }
 
   @override
@@ -73,37 +97,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            'Sign in to continue (UI-only demo).',
+            'Sign in to continue (demo).',
             style: Theme.of(
               context,
             ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-          ),
-          const SizedBox(height: 14),
-          SegmentedButton<UserRole>(
-            segments: const [
-              ButtonSegment(value: UserRole.customer, label: Text('Customer')),
-              ButtonSegment(value: UserRole.admin, label: Text('Admin')),
-            ],
-            selected: {_role},
-            onSelectionChanged: (s) => setState(() => _role = s.first),
           ),
           const SizedBox(height: 14),
           Form(
             key: _formKey,
             child: Column(
               children: [
-                TextFormField(
-                  controller: _nameCtrl,
-                  textInputAction: TextInputAction.next,
-                  decoration: const InputDecoration(labelText: 'Name'),
-                  validator: (v) {
-                    final t = (v ?? '').trim();
-                    if (t.isEmpty) return 'Name is required';
-                    if (t.length < 2) return 'Name is too short';
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 12),
                 TextFormField(
                   controller: _emailCtrl,
                   keyboardType: TextInputType.emailAddress,
