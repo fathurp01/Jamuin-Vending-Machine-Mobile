@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../inventory/application/inventory_controller.dart';
+import '../../session/application/session_controller.dart';
 import '../application/cart_controller.dart';
 import '../../../shared/widgets/money_text.dart';
 import '../../../shared/widgets/quantity_stepper.dart';
@@ -13,7 +15,21 @@ class CartScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cart = ref.watch(cartControllerProvider);
+    final session = ref.watch(sessionControllerProvider);
+    final inventory = ref.watch(inventoryControllerProvider);
     final scheme = Theme.of(context).colorScheme;
+
+    final machineId = session.selectedMachineId;
+    final hasSelectedMachine = machineId != null;
+    final hasStockIssues = hasSelectedMachine
+        ? cart.items.values.any((it) {
+            final stock = inventory.stockFor(
+              machineId: machineId,
+              productId: it.product.id,
+            );
+            return it.quantity > stock;
+          })
+        : true;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Cart')),
@@ -50,8 +66,41 @@ class CartScreen extends ConsumerWidget {
           : ListView(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
               children: [
-                ...cart.items.values.map(
-                  (item) => Padding(
+                RoundedCard(
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.location_on_outlined,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          session.selectedMachineName ??
+                              'Select a machine before checkout',
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: scheme.onSurfaceVariant),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => context.go('/app/map'),
+                        child: const Text('Select'),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ...cart.items.values.map((item) {
+                  final stock = hasSelectedMachine
+                      ? inventory.stockFor(
+                          machineId: machineId,
+                          productId: item.product.id,
+                        )
+                      : null;
+                  final isOverStock = stock != null && item.quantity > stock;
+                  final maxQty = stock == null ? 99 : (stock <= 0 ? 1 : stock);
+
+                  return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: RoundedCard(
                       child: Row(
@@ -73,13 +122,25 @@ class CartScreen extends ConsumerWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  item.product.name,
-                                  style: Theme.of(
-                                    context,
-                                  ).textTheme.titleMedium,
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        item.product.name,
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.titleMedium,
+                                      ),
+                                    ),
+                                    IconButton(
+                                      tooltip: 'Remove',
+                                      onPressed: () => ref
+                                          .read(cartControllerProvider.notifier)
+                                          .remove(item.product.id),
+                                      icon: const Icon(Icons.delete_outline),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(height: 4),
                                 MoneyText(
                                   item.product.price,
                                   style: Theme.of(context).textTheme.bodySmall
@@ -87,12 +148,30 @@ class CartScreen extends ConsumerWidget {
                                         color: scheme.onSurfaceVariant,
                                       ),
                                 ),
+                                if (stock != null) ...[
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    isOverStock
+                                        ? 'Stock left: $stock (reduce quantity)'
+                                        : 'Stock left: $stock',
+                                    style: Theme.of(context).textTheme.bodySmall
+                                        ?.copyWith(
+                                          color: isOverStock
+                                              ? scheme.error
+                                              : scheme.onSurfaceVariant,
+                                          fontWeight: isOverStock
+                                              ? FontWeight.w800
+                                              : FontWeight.w600,
+                                        ),
+                                  ),
+                                ],
                                 const SizedBox(height: 10),
                                 Row(
                                   children: [
                                     QuantityStepper(
                                       value: item.quantity,
                                       min: 1,
+                                      max: maxQty,
                                       onChanged: (v) => ref
                                           .read(cartControllerProvider.notifier)
                                           .setQuantity(item.product.id, v),
@@ -115,8 +194,8 @@ class CartScreen extends ConsumerWidget {
                         ],
                       ),
                     ),
-                  ),
-                ),
+                  );
+                }),
                 const SizedBox(height: 12),
                 RoundedCard(
                   child: Column(
@@ -152,7 +231,9 @@ class CartScreen extends ConsumerWidget {
           : SafeArea(
               minimum: const EdgeInsets.fromLTRB(16, 10, 16, 16),
               child: FilledButton(
-                onPressed: () => context.push('/app/checkout'),
+                onPressed: hasStockIssues
+                    ? null
+                    : () => context.push('/app/checkout'),
                 child: const Text('Checkout'),
               ),
             ),

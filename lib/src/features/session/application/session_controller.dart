@@ -9,6 +9,7 @@ class SessionState {
     required this.email,
     required this.role,
     required this.points,
+    required this.selectedMachineId,
     required this.selectedMachineName,
   });
 
@@ -17,6 +18,7 @@ class SessionState {
   final String? email;
   final UserRole role;
   final int points;
+  final String? selectedMachineId;
   final String? selectedMachineName;
 
   SessionState copyWith({
@@ -25,6 +27,7 @@ class SessionState {
     String? email,
     UserRole? role,
     int? points,
+    String? selectedMachineId,
     String? selectedMachineName,
   }) {
     return SessionState(
@@ -33,6 +36,7 @@ class SessionState {
       email: email ?? this.email,
       role: role ?? this.role,
       points: points ?? this.points,
+      selectedMachineId: selectedMachineId ?? this.selectedMachineId,
       selectedMachineName: selectedMachineName ?? this.selectedMachineName,
     );
   }
@@ -43,6 +47,7 @@ class SessionState {
     email: null,
     role: UserRole.customer,
     points: 120,
+    selectedMachineId: null,
     selectedMachineName: null,
   );
 }
@@ -68,8 +73,8 @@ class SessionController extends Notifier<SessionState> {
     state = SessionState.initial;
   }
 
-  void selectMachine(String name) {
-    state = state.copyWith(selectedMachineName: name);
+  void selectMachine({required String id, required String name}) {
+    state = state.copyWith(selectedMachineId: id, selectedMachineName: name);
   }
 }
 

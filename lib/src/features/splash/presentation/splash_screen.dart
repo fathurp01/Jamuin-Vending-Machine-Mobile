@@ -58,10 +58,14 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
           email: restored.email ?? 'user@example.com',
           role: restored.role,
         );
-    if (restored.selectedMachineName != null) {
+    if (restored.selectedMachineId != null &&
+        restored.selectedMachineName != null) {
       ref
           .read(sessionControllerProvider.notifier)
-          .selectMachine(restored.selectedMachineName!);
+          .selectMachine(
+            id: restored.selectedMachineId!,
+            name: restored.selectedMachineName!,
+          );
     }
 
     context.go(restored.role == UserRole.admin ? '/app/admin' : '/app/home');

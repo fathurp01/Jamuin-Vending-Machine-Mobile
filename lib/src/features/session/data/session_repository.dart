@@ -30,6 +30,7 @@ final class LocalSessionRepository implements SessionRepository {
       email: m['email'] as String?,
       role: role,
       points: (m['points'] as int?) ?? 120,
+      selectedMachineId: m['selectedMachineId'] as String?,
       selectedMachineName: m['selectedMachineName'] as String?,
     );
   }
@@ -42,6 +43,7 @@ final class LocalSessionRepository implements SessionRepository {
       'email': state.email,
       'role': state.role == UserRole.admin ? 'admin' : 'customer',
       'points': state.points,
+      'selectedMachineId': state.selectedMachineId,
       'selectedMachineName': state.selectedMachineName,
     });
   }

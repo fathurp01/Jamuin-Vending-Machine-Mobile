@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../cart/application/cart_controller.dart';
+import '../../inventory/application/inventory_controller.dart';
 import '../../session/application/session_controller.dart';
 import '../application/checkout_controller.dart';
 import '../../../shared/widgets/money_text.dart';
@@ -22,7 +23,20 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   Widget build(BuildContext context) {
     final cart = ref.watch(cartControllerProvider);
     final session = ref.watch(sessionControllerProvider);
+    final inventory = ref.watch(inventoryControllerProvider);
     final scheme = Theme.of(context).colorScheme;
+
+    final machineId = session.selectedMachineId;
+    final hasSelectedMachine = machineId != null;
+    final stockOk = hasSelectedMachine
+        ? cart.items.values.every((it) {
+            final stock = inventory.stockFor(
+              machineId: machineId,
+              productId: it.product.id,
+            );
+            return it.quantity <= stock;
+          })
+        : false;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Checkout')),
@@ -73,6 +87,30 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             ),
           ),
           const SizedBox(height: 12),
+          if (hasSelectedMachine && !stockOk)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: RoundedCard(
+                child: Row(
+                  children: [
+                    Icon(Icons.warning_amber_outlined, color: scheme.error),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Some items exceed available stock for this machine.\nPlease adjust quantities in your cart.',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => context.go('/app/cart'),
+                      child: const Text('Cart'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           RoundedCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -174,7 +212,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       bottomNavigationBar: SafeArea(
         minimum: const EdgeInsets.fromLTRB(16, 10, 16, 16),
         child: FilledButton(
-          onPressed: _placing
+          onPressed: (_placing || !stockOk)
               ? null
               : () async {
                   final messenger = ScaffoldMessenger.of(context);
