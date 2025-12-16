@@ -3,56 +3,115 @@ import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../cart/application/cart_controller.dart';
+import '../../inventory/application/inventory_controller.dart';
+import '../../session/application/session_controller.dart';
+import '../../transactions/application/transaction_history_controller.dart';
+import '../../transactions/domain/transaction_record.dart';
 
-enum TransactionStatus { pending, brewing, ready, completed, failed }
+class PlaceOrderResult {
+  const PlaceOrderResult._({required this.id, required this.error});
 
-class TransactionState {
-  const TransactionState({
-    required this.id,
-    required this.status,
-    required this.total,
-  });
+  final String? id;
+  final String? error;
 
-  final String id;
-  final TransactionStatus status;
-  final int total;
+  factory PlaceOrderResult.success(String id) =>
+      PlaceOrderResult._(id: id, error: null);
 
-  TransactionState copyWith({TransactionStatus? status}) {
-    return TransactionState(
-      id: id,
-      status: status ?? this.status,
-      total: total,
-    );
-  }
+  factory PlaceOrderResult.failure(String message) =>
+      PlaceOrderResult._(id: null, error: message);
 }
 
-class CheckoutController extends Notifier<TransactionState?> {
+class CheckoutController extends Notifier<String?> {
   @override
-  TransactionState? build() => null;
+  String? build() => null;
 
-  Future<String?> placeOrder() async {
+  Future<PlaceOrderResult> placeOrder({required CustomerInfo customer}) async {
     final cart = ref.read(cartControllerProvider);
-    if (cart.subtotal == 0) return null;
+    if (cart.subtotal == 0) {
+      return PlaceOrderResult.failure('Cart is empty.');
+    }
 
-    final id = _newId();
-    state = TransactionState(
-      id: id,
-      status: TransactionStatus.pending,
-      total: cart.total,
+    final session = ref.read(sessionControllerProvider);
+    final machineId = session.selectedMachineId;
+    final machineName = session.selectedMachineName;
+
+    if (machineId == null || machineName == null) {
+      return PlaceOrderResult.failure('Please select a vending machine first.');
+    }
+
+    final productQuantities = <String, int>{
+      for (final it in cart.items.values) it.product.id: it.quantity,
+    };
+
+    final inventory = ref.read(inventoryControllerProvider.notifier);
+    final ok = await inventory.consumeStock(
+      machineId: machineId,
+      productQuantities: productQuantities,
     );
 
-    // Simulate status updates.
-    await Future<void>.delayed(const Duration(milliseconds: 450));
-    state = state?.copyWith(status: TransactionStatus.brewing);
+    if (!ok) {
+      return PlaceOrderResult.failure(
+        'Some items are out of stock for the selected machine.',
+      );
+    }
 
-    await Future<void>.delayed(const Duration(milliseconds: 650));
-    state = state?.copyWith(status: TransactionStatus.ready);
+    final id = _newId();
+    final record = TransactionRecord(
+      id: id,
+      createdAt: DateTime.now(),
+      machineId: machineId,
+      machineName: machineName,
+      status: TransactionStatus.pending,
+      items: cart.items.values
+          .map(
+            (it) => TransactionLineItem(
+              productId: it.product.id,
+              productName: it.product.name,
+              unitPrice: it.product.price,
+              quantity: it.quantity,
+            ),
+          )
+          .toList(growable: false),
+      subtotal: cart.subtotal,
+      serviceFee: cart.serviceFee,
+      tax: cart.tax,
+      total: cart.total,
+      customer: customer,
+    );
 
-    await Future<void>.delayed(const Duration(milliseconds: 500));
-    state = state?.copyWith(status: TransactionStatus.completed);
+    await ref
+        .read(transactionHistoryControllerProvider.notifier)
+        .upsert(record);
+    state = id;
 
     ref.read(cartControllerProvider.notifier).clear();
-    return id;
+
+    // Simulate payment completion.
+    await Future<void>.delayed(const Duration(milliseconds: 900));
+
+    final isFailed = Random().nextInt(10) == 0; // ~10% fail
+    if (isFailed) {
+      await ref
+          .read(transactionHistoryControllerProvider.notifier)
+          .updateStatus(id, TransactionStatus.failed);
+
+      // Rollback stock on failure.
+      for (final entry in productQuantities.entries) {
+        await inventory.addStock(
+          machineId: machineId,
+          productId: entry.key,
+          delta: entry.value,
+        );
+      }
+
+      return PlaceOrderResult.success(id);
+    }
+
+    await ref
+        .read(transactionHistoryControllerProvider.notifier)
+        .updateStatus(id, TransactionStatus.paid);
+
+    return PlaceOrderResult.success(id);
   }
 
   static String _newId() {
@@ -63,6 +122,4 @@ class CheckoutController extends Notifier<TransactionState?> {
 }
 
 final checkoutControllerProvider =
-    NotifierProvider<CheckoutController, TransactionState?>(
-      CheckoutController.new,
-    );
+    NotifierProvider<CheckoutController, String?>(CheckoutController.new);

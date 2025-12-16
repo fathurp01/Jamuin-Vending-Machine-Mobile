@@ -13,6 +13,7 @@ import '../features/home/presentation/home_screen.dart';
 import '../features/map/presentation/map_screen.dart';
 import '../features/products/presentation/product_detail_screen.dart';
 import '../features/products/presentation/product_list_screen.dart';
+import '../features/transactions/presentation/transaction_history_screen.dart';
 import '../features/session/application/session_controller.dart';
 import '../features/splash/presentation/splash_screen.dart';
 
@@ -116,6 +117,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/app/about',
         builder: (context, state) => const AboutScreen(),
+      ),
+      GoRoute(
+        path: '/app/history',
+        builder: (context, state) => const TransactionHistoryScreen(),
       ),
       GoRoute(
         path: '/app/products',

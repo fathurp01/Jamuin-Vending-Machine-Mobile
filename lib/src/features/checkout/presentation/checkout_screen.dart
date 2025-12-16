@@ -6,6 +6,7 @@ import '../../cart/application/cart_controller.dart';
 import '../../inventory/application/inventory_controller.dart';
 import '../../session/application/session_controller.dart';
 import '../application/checkout_controller.dart';
+import '../../transactions/domain/transaction_record.dart';
 import '../../../shared/widgets/money_text.dart';
 import '../../../shared/widgets/rounded_card.dart';
 
@@ -17,7 +18,27 @@ class CheckoutScreen extends ConsumerStatefulWidget {
 }
 
 class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
+  final _notesCtrl = TextEditingController();
+
   bool _placing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final session = ref.read(sessionControllerProvider);
+    _nameCtrl.text = (session.displayName ?? '').trim();
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _phoneCtrl.dispose();
+    _notesCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,174 +61,225 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Checkout')),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-        children: [
-          RoundedCard(
-            child: Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: scheme.primary.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Icon(
-                    Icons.location_on_outlined,
-                    color: scheme.primary,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Vending machine',
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        session.selectedMachineName ?? 'Not selected',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                TextButton(
-                  onPressed: () => context.go('/app/map'),
-                  child: const Text('Change'),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          if (hasSelectedMachine && !stockOk)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: RoundedCard(
-                child: Row(
-                  children: [
-                    Icon(Icons.warning_amber_outlined, color: scheme.error),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Some items exceed available stock for this machine.\nPlease adjust quantities in your cart.',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
-                      ),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          children: [
+            RoundedCard(
+              child: Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: scheme.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(14),
                     ),
-                    TextButton(
-                      onPressed: () => context.go('/app/cart'),
-                      child: const Text('Cart'),
+                    child: Icon(
+                      Icons.location_on_outlined,
+                      color: scheme.primary,
                     ),
-                  ],
-                ),
-              ),
-            ),
-          RoundedCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Order summary',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 10),
-                ...cart.items.values.map(
-                  (it) => Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: Row(
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Text('${it.quantity}× ${it.product.name}'),
+                        Text(
+                          'Vending machine',
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w800),
                         ),
-                        MoneyText(it.lineTotal),
+                        const SizedBox(height: 4),
+                        Text(
+                          session.selectedMachineName ?? 'Not selected',
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: scheme.onSurfaceVariant),
+                        ),
                       ],
                     ),
                   ),
-                ),
-                const Divider(height: 22),
-                _Line(label: 'Subtotal', value: cart.subtotal),
-                const SizedBox(height: 8),
-                _Line(label: 'Service fee', value: cart.serviceFee),
-                const SizedBox(height: 8),
-                _Line(label: 'Tax (11%)', value: cart.tax),
-                const Divider(height: 22),
-                Row(
-                  children: [
-                    Text(
-                      'Total',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const Spacer(),
-                    MoneyText(
-                      cart.total,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+                  TextButton(
+                    onPressed: () => context.go('/app/map'),
+                    child: const Text('Change'),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          RoundedCard(
-            child: Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: scheme.secondary.withValues(alpha: 0.16),
-                    borderRadius: BorderRadius.circular(14),
+            const SizedBox(height: 12),
+            RoundedCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Customer info',
+                    style: Theme.of(context).textTheme.titleMedium,
                   ),
-                  child: Icon(
-                    Icons.credit_card_outlined,
-                    color: scheme.secondary,
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    controller: _nameCtrl,
+                    textInputAction: TextInputAction.next,
+                    decoration: const InputDecoration(
+                      labelText: 'Name',
+                      prefixIcon: Icon(Icons.person_outline),
+                    ),
+                    validator: (v) {
+                      final value = (v ?? '').trim();
+                      if (value.isEmpty) return 'Name is required';
+                      return null;
+                    },
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _phoneCtrl,
+                    keyboardType: TextInputType.phone,
+                    textInputAction: TextInputAction.next,
+                    decoration: const InputDecoration(
+                      labelText: 'Phone',
+                      prefixIcon: Icon(Icons.phone_outlined),
+                    ),
+                    validator: (v) {
+                      final value = (v ?? '').trim();
+                      if (value.isEmpty) return 'Phone is required';
+                      final digitsOnly = RegExp(r'^\+?[0-9]{8,15}$');
+                      if (!digitsOnly.hasMatch(value)) {
+                        return 'Enter a valid phone number';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _notesCtrl,
+                    maxLines: 2,
+                    textInputAction: TextInputAction.done,
+                    decoration: const InputDecoration(
+                      labelText: 'Notes (optional)',
+                      prefixIcon: Icon(Icons.sticky_note_2_outlined),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (hasSelectedMachine && !stockOk)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: RoundedCard(
+                  child: Row(
                     children: [
-                      Text(
-                        'Payment',
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
+                      Icon(Icons.warning_amber_outlined, color: scheme.error),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Some items exceed available stock for this machine.\nPlease adjust quantities in your cart.',
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: scheme.onSurfaceVariant),
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Card / QR (placeholder)',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
+                      TextButton(
+                        onPressed: () => context.go('/app/cart'),
+                        child: const Text('Cart'),
                       ),
                     ],
                   ),
                 ),
-              ],
+              ),
+            RoundedCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Order summary',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 10),
+                  ...cart.items.values.map(
+                    (it) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text('${it.quantity}× ${it.product.name}'),
+                          ),
+                          MoneyText(it.lineTotal),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const Divider(height: 22),
+                  _Line(label: 'Subtotal', value: cart.subtotal),
+                  const SizedBox(height: 8),
+                  _Line(label: 'Service fee', value: cart.serviceFee),
+                  const SizedBox(height: 8),
+                  _Line(label: 'Tax (11%)', value: cart.tax),
+                  const Divider(height: 22),
+                  Row(
+                    children: [
+                      Text(
+                        'Total',
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w900),
+                      ),
+                      const Spacer(),
+                      MoneyText(
+                        cart.total,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w900),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Tip: For demo, order status updates automatically after checkout.',
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-          ),
-        ],
+            const SizedBox(height: 12),
+            RoundedCard(
+              child: Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: scheme.secondary.withValues(alpha: 0.16),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Icon(
+                      Icons.credit_card_outlined,
+                      color: scheme.secondary,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Payment',
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w800),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Card / QR (placeholder)',
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: scheme.onSurfaceVariant),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Tip: For demo, order status updates automatically after checkout.',
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+            ),
+          ],
+        ),
       ),
       bottomNavigationBar: SafeArea(
         minimum: const EdgeInsets.fromLTRB(16, 10, 16, 16),
@@ -217,6 +289,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               : () async {
                   final messenger = ScaffoldMessenger.of(context);
                   final router = GoRouter.of(context);
+
+                  if (!_formKey.currentState!.validate()) return;
 
                   if (session.selectedMachineName == null) {
                     messenger.showSnackBar(
@@ -228,16 +302,27 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   }
 
                   setState(() => _placing = true);
-                  final id = await ref
+                  final result = await ref
                       .read(checkoutControllerProvider.notifier)
-                      .placeOrder();
+                      .placeOrder(
+                        customer: CustomerInfo(
+                          name: _nameCtrl.text.trim(),
+                          phone: _phoneCtrl.text.trim(),
+                          notes: _notesCtrl.text.trim().isEmpty
+                              ? null
+                              : _notesCtrl.text.trim(),
+                        ),
+                      );
                   if (!mounted) return;
                   setState(() => _placing = false);
 
+                  final id = result.id;
                   if (id == null) {
                     if (!mounted) return;
                     messenger.showSnackBar(
-                      const SnackBar(content: Text('Cart is empty.')),
+                      SnackBar(
+                        content: Text(result.error ?? 'Checkout failed.'),
+                      ),
                     );
                     return;
                   }

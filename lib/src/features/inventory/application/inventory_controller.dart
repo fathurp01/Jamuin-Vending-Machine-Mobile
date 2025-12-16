@@ -48,6 +48,19 @@ class InventoryController extends Notifier<InventoryState> {
     await ref.read(inventoryRepositoryProvider).write(state);
   }
 
+  Future<void> addStock({
+    required String machineId,
+    required String productId,
+    required int delta,
+  }) async {
+    final current = stockFor(machineId: machineId, productId: productId);
+    await setStock(
+      machineId: machineId,
+      productId: productId,
+      stock: current + delta,
+    );
+  }
+
   Future<bool> consumeStock({
     required String machineId,
     required Map<String, int> productQuantities,

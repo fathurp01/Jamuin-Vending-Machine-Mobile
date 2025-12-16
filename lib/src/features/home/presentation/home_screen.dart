@@ -121,6 +121,13 @@ class HomeScreen extends ConsumerWidget {
                 ),
               ],
             ),
+            const SizedBox(height: 12),
+            _ActionTile(
+              icon: Icons.receipt_long_outlined,
+              title: 'Transaction History',
+              subtitle: 'Pending / Paid / Failed',
+              onTap: () => context.push('/app/history'),
+            ),
             const SizedBox(height: 18),
             SectionHeader(
               title: 'Popular',

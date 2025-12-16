@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../application/checkout_controller.dart';
+import '../../transactions/application/transaction_history_controller.dart';
+import '../../transactions/domain/transaction_record.dart';
 import '../../../shared/widgets/money_text.dart';
 import '../../../shared/widgets/rounded_card.dart';
 
@@ -71,11 +72,24 @@ class TransactionStatusScreen extends ConsumerWidget {
                   decoration: BoxDecoration(
                     color: scheme.primary.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(18),
-                  ),
+                  final tx = ref.watch(transactionByIdProvider(transactionId));
                   child: Icon(icon, color: scheme.primary),
                 ),
-                const SizedBox(width: 14),
-                Expanded(
+
+                  if (tx == null) {
+                    return Scaffold(
+                      appBar: AppBar(
+                        title: const Text('Status'),
+                        leading: IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => context.go('/app/home'),
+                        ),
+                      ),
+                      body: const Center(child: Text('Transaction not found.')),
+                    );
+                  }
+
+                  final status = tx.status;
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -83,14 +97,18 @@ class TransactionStatusScreen extends ConsumerWidget {
                         title,
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.w900,
-                        ),
-                      ),
+                      title = 'Pending';
+                      subtitle = 'Waiting for payment confirmation (simulated).';
                       const SizedBox(height: 6),
                       Text(
                         subtitle,
+                      title = 'Paid';
+                      subtitle = 'Payment confirmed. Please pick up at the machine.';
+                      icon = Icons.verified_outlined;
+                      break;
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: scheme.onSurfaceVariant,
-                        ),
+                      subtitle = 'Payment failed. Your stock was restored.';
                       ),
                     ],
                   ),
@@ -143,13 +161,31 @@ class TransactionStatusScreen extends ConsumerWidget {
                     ),
                   ],
                 ),
-              ],
+                                    tx.machineName,
             ),
           ),
           const SizedBox(height: 12),
           RoundedCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Text(
+                                    'Customer',
+                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: scheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  Text(
+                                    tx.customer.name,
+                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ],
+                              ),
               children: [
                 Text(
                   'Progress',
@@ -161,13 +197,67 @@ class TransactionStatusScreen extends ConsumerWidget {
                   label: 'Order received',
                 ),
                 _StepRow(
-                  done: status.index >= TransactionStatus.brewing.index,
+                                    tx.total,
                   label: 'Preparing',
                 ),
                 _StepRow(
                   done: status.index >= TransactionStatus.ready.index,
                   label: 'Ready for pickup',
                 ),
+                              const Divider(height: 22),
+                              Row(
+                                children: [
+                                  Text(
+                                    'Subtotal',
+                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: scheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  MoneyText(
+                                    tx.subtotal,
+                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: scheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Text(
+                                    'Service fee',
+                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: scheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  MoneyText(
+                                    tx.serviceFee,
+                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: scheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Text(
+                                    'Tax (11%)',
+                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: scheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  MoneyText(
+                                    tx.tax,
+                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: scheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
+                              ),
                 _StepRow(
                   done: status.index >= TransactionStatus.completed.index,
                   label: 'Completed',
@@ -177,26 +267,21 @@ class TransactionStatusScreen extends ConsumerWidget {
           ),
         ],
       ),
-      bottomNavigationBar: SafeArea(
+                                'Items',
         minimum: const EdgeInsets.fromLTRB(16, 10, 16, 16),
         child: FilledButton(
-          onPressed: () => context.go('/app/home'),
-          child: const Text('Back to Home'),
-        ),
-      ),
-    );
-  }
-}
-
-class _StepRow extends StatelessWidget {
-  const _StepRow({required this.done, required this.label});
-
-  final bool done;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+                              const SizedBox(height: 10),
+                              ...tx.items.map(
+                                (it) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 10),
+                                  child: Row(
+                                    children: [
+                                      Expanded(child: Text('${it.quantity}× ${it.productName}')),
+                                      MoneyText(it.lineTotal),
+                                    ],
+                                  ),
+                                ),
+                              ),
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
@@ -213,20 +298,4 @@ class _StepRow extends StatelessWidget {
             ),
             child: done
                 ? Icon(Icons.check, size: 14, color: scheme.onPrimary)
-                : null,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              label,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                fontWeight: done ? FontWeight.w800 : FontWeight.w500,
-                color: done ? scheme.onSurface : scheme.onSurfaceVariant,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+
