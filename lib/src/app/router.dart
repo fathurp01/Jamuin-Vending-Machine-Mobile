@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/about/presentation/about_screen.dart';
+import '../features/auth/presentation/login_screen.dart';
+import '../features/auth/presentation/register_screen.dart';
 import '../features/admin/presentation/admin_dashboard_screen.dart';
 import '../features/cart/presentation/cart_screen.dart';
 import '../features/checkout/presentation/checkout_screen.dart';
@@ -25,6 +28,9 @@ class _RouterNotifier extends ChangeNotifier {
 
   bool get isAdmin =>
       ref.read(sessionControllerProvider).role == UserRole.admin;
+
+  bool get isAuthenticated =>
+      ref.read(sessionControllerProvider).isAuthenticated;
 }
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -35,7 +41,19 @@ final routerProvider = Provider<GoRouter>((ref) {
     refreshListenable: notifier,
     redirect: (context, state) {
       final isAdmin = notifier.isAdmin;
+      final isAuth = notifier.isAuthenticated;
       final loc = state.matchedLocation;
+
+      final isAuthRoute = loc.startsWith('/auth');
+      final isAppRoute = loc.startsWith('/app');
+
+      if (!isAuth && isAppRoute) {
+        return '/auth/login';
+      }
+
+      if (isAuth && isAuthRoute) {
+        return isAdmin ? '/app/admin' : '/app/home';
+      }
 
       if (loc.startsWith('/app/admin') && !isAdmin) {
         return '/app/home';
@@ -47,6 +65,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/splash',
         builder: (context, state) => const SplashScreen(),
+      ),
+      GoRoute(
+        path: '/auth/login',
+        builder: (context, state) => const LoginScreen(),
+      ),
+      GoRoute(
+        path: '/auth/register',
+        builder: (context, state) => const RegisterScreen(),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
@@ -86,6 +112,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             ],
           ),
         ],
+      ),
+      GoRoute(
+        path: '/app/about',
+        builder: (context, state) => const AboutScreen(),
       ),
       GoRoute(
         path: '/app/products',

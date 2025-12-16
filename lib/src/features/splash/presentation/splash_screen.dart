@@ -1,16 +1,20 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-class SplashScreen extends StatefulWidget {
+import '../../session/application/session_controller.dart';
+import '../../session/application/session_persistence_providers.dart';
+
+class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen>
+class _SplashScreenState extends ConsumerState<SplashScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   late final Animation<double> _scale;
@@ -27,12 +31,40 @@ class _SplashScreenState extends State<SplashScreen>
     _fade = CurvedAnimation(parent: _controller, curve: Curves.easeOut);
     _controller.forward();
 
-    unawaited(
-      Future<void>.delayed(const Duration(milliseconds: 1400), () {
-        if (!mounted) return;
-        context.go('/app/home');
-      }),
-    );
+    unawaited(_bootstrap());
+  }
+
+  Future<void> _bootstrap() async {
+    // Give the splash animation time to play.
+    await Future<void>.delayed(const Duration(milliseconds: 900));
+    if (!mounted) return;
+
+    // Ensure local storage is initialized.
+    await ref.read(localStorageProvider.future);
+
+    final repo = ref.read(sessionRepositoryProvider);
+    final restored = await repo.read();
+    if (!mounted) return;
+
+    if (restored == null) {
+      context.go('/auth/login');
+      return;
+    }
+
+    ref
+        .read(sessionControllerProvider.notifier)
+        .applyLogin(
+          displayName: restored.displayName ?? 'User',
+          email: restored.email ?? 'user@example.com',
+          role: restored.role,
+        );
+    if (restored.selectedMachineName != null) {
+      ref
+          .read(sessionControllerProvider.notifier)
+          .selectMachine(restored.selectedMachineName!);
+    }
+
+    context.go(restored.role == UserRole.admin ? '/app/admin' : '/app/home');
   }
 
   @override
@@ -69,7 +101,7 @@ class _SplashScreenState extends State<SplashScreen>
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'Vendo',
+                  'Jamuin',
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.w800,
                   ),

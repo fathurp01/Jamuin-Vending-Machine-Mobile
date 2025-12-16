@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../cart/application/cart_controller.dart';
 import '../../products/data/product_repository.dart';
 import '../../session/application/session_controller.dart';
+import '../../session/application/session_persistence_providers.dart';
 import '../../../shared/widgets/rounded_card.dart';
 import '../../../shared/widgets/section_header.dart';
 import '../../../shared/widgets/money_text.dart';
@@ -20,12 +21,13 @@ class HomeScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: GestureDetector(
-          onLongPress: () =>
-              ref.read(sessionControllerProvider.notifier).toggleRole(),
-          child: const Text('Vendo'),
-        ),
+        title: const Text('Jamuin'),
         actions: [
+          IconButton(
+            tooltip: 'About',
+            onPressed: () => context.push('/app/about'),
+            icon: const Icon(Icons.info_outline),
+          ),
           IconButton(
             tooltip: 'Cart',
             onPressed: () => context.go('/app/cart'),
@@ -34,6 +36,16 @@ class HomeScreen extends ConsumerWidget {
               label: Text('${cart.itemCount}'),
               child: const Icon(Icons.shopping_bag_outlined),
             ),
+          ),
+          IconButton(
+            tooltip: 'Logout',
+            onPressed: () async {
+              final repo = ref.read(sessionRepositoryProvider);
+              await repo.clear();
+              ref.read(sessionControllerProvider.notifier).logout();
+              if (context.mounted) context.go('/auth/login');
+            },
+            icon: const Icon(Icons.logout),
           ),
           const SizedBox(width: 8),
         ],
@@ -238,9 +250,7 @@ class HomeScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              session.role == UserRole.admin
-                  ? 'Admin mode enabled (long-press title to switch)'
-                  : 'Customer mode (long-press title for demo admin)',
+              session.role == UserRole.admin ? 'Admin mode' : 'Customer mode',
               style: Theme.of(
                 context,
               ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),

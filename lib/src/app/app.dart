@@ -12,7 +12,7 @@ class VendoApp extends ConsumerWidget {
     final router = ref.watch(routerProvider);
 
     return MaterialApp.router(
-      title: 'Vendo',
+      title: 'Jamuin',
       theme: AppTheme.light(),
       routerConfig: router,
       debugShowCheckedModeBanner: false,

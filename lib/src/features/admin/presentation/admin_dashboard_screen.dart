@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../session/application/session_controller.dart';
+import '../../session/application/session_persistence_providers.dart';
 import '../../../shared/widgets/rounded_card.dart';
 
 class AdminDashboardScreen extends ConsumerWidget {
@@ -41,7 +43,21 @@ class AdminDashboardScreen extends ConsumerWidget {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Admin Dashboard')),
+      appBar: AppBar(
+        title: const Text('Admin Dashboard'),
+        actions: [
+          IconButton(
+            tooltip: 'Logout',
+            onPressed: () async {
+              final repo = ref.read(sessionRepositoryProvider);
+              await repo.clear();
+              ref.read(sessionControllerProvider.notifier).logout();
+              if (context.mounted) context.go('/auth/login');
+            },
+            icon: const Icon(Icons.logout),
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
@@ -150,9 +166,8 @@ class AdminDashboardScreen extends ConsumerWidget {
                   ),
                 ),
                 OutlinedButton(
-                  onPressed: () =>
-                      ref.read(sessionControllerProvider.notifier).toggleRole(),
-                  child: const Text('Switch to customer'),
+                  onPressed: () => context.go('/app/about'),
+                  child: const Text('About'),
                 ),
               ],
             ),
