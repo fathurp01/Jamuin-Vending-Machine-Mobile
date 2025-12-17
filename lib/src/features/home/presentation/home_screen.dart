@@ -24,12 +24,12 @@ class HomeScreen extends ConsumerWidget {
         title: const Text('Jamuin'),
         actions: [
           IconButton(
-            tooltip: 'About',
+            tooltip: 'Tentang',
             onPressed: () => context.push('/app/about'),
             icon: const Icon(Icons.info_outline),
           ),
           IconButton(
-            tooltip: 'Cart',
+            tooltip: 'Keranjang',
             onPressed: () => context.go('/app/cart'),
             icon: Badge(
               isLabelVisible: cart.itemCount > 0,
@@ -38,7 +38,7 @@ class HomeScreen extends ConsumerWidget {
             ),
           ),
           IconButton(
-            tooltip: 'Logout',
+            tooltip: 'Keluar',
             onPressed: () async {
               final repo = ref.read(sessionRepositoryProvider);
               await repo.clear();
@@ -68,7 +68,7 @@ class HomeScreen extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Points',
+                          'Poin',
                           style: Theme.of(context).textTheme.labelLarge
                               ?.copyWith(color: scheme.onSurfaceVariant),
                         ),
@@ -80,7 +80,7 @@ class HomeScreen extends ConsumerWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Collect points on every order.',
+                          'Kumpulkan poin dari setiap transaksi.',
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(color: scheme.onSurfaceVariant),
                         ),
@@ -105,8 +105,8 @@ class HomeScreen extends ConsumerWidget {
                 Expanded(
                   child: _ActionTile(
                     icon: Icons.map_outlined,
-                    title: 'Find Machine',
-                    subtitle: session.selectedMachineName ?? 'Choose nearest',
+                    title: 'Cari Mesin',
+                    subtitle: session.selectedMachineName ?? 'Pilih terdekat',
                     onTap: () => context.go('/app/map'),
                   ),
                 ),
@@ -114,8 +114,8 @@ class HomeScreen extends ConsumerWidget {
                 Expanded(
                   child: _ActionTile(
                     icon: Icons.local_drink_outlined,
-                    title: 'Browse Menu',
-                    subtitle: 'Coffee & more',
+                    title: 'Lihat Produk',
+                    subtitle: 'Minuman & lainnya',
                     onTap: () => context.push('/app/products'),
                   ),
                 ),
@@ -123,17 +123,24 @@ class HomeScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 12),
             _ActionTile(
+              icon: Icons.psychology_outlined,
+              title: 'Konsultasi AI',
+              subtitle: 'Rekomendasi jamu sesuai kebutuhan',
+              onTap: () => context.go('/app/expert'),
+            ),
+            const SizedBox(height: 12),
+            _ActionTile(
               icon: Icons.receipt_long_outlined,
-              title: 'Transaction History',
-              subtitle: 'Pending / Paid / Failed',
+              title: 'Riwayat Transaksi',
+              subtitle: 'Menunggu / Berhasil / Gagal',
               onTap: () => context.push('/app/history'),
             ),
             const SizedBox(height: 18),
             SectionHeader(
-              title: 'Popular',
+              title: 'Populer',
               trailing: TextButton(
                 onPressed: () => context.push('/app/products'),
-                child: const Text('See all'),
+                child: const Text('Lihat semua'),
               ),
             ),
             const SizedBox(height: 10),
@@ -219,7 +226,7 @@ class HomeScreen extends ConsumerWidget {
                       },
                     ),
                   ),
-                  error: (e, _) => Text('Failed to load: $e'),
+                  error: (e, _) => Text('Gagal memuat: $e'),
                   loading: () => const Padding(
                     padding: EdgeInsets.symmetric(vertical: 12),
                     child: Center(child: CircularProgressIndicator()),
@@ -236,12 +243,12 @@ class HomeScreen extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Ready to order?',
+                          'Siap pesan?',
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'Pick a machine, add items, and checkout in seconds.',
+                          'Pilih mesin, tambah item, lalu checkout dengan cepat.',
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(color: scheme.onSurfaceVariant),
                         ),
@@ -250,14 +257,14 @@ class HomeScreen extends ConsumerWidget {
                   ),
                   FilledButton(
                     onPressed: () => context.push('/app/products'),
-                    child: const Text('Start'),
+                    child: const Text('Mulai'),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 10),
             Text(
-              session.role == UserRole.admin ? 'Admin mode' : 'Customer mode',
+              session.role == UserRole.admin ? 'Mode admin' : 'Mode pelanggan',
               style: Theme.of(
                 context,
               ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
@@ -355,18 +362,18 @@ class _BannerCarouselState extends State<_BannerCarousel> {
 
     final items = <({String title, String subtitle, IconData icon})>[
       (
-        title: 'Buy 2, save more',
-        subtitle: 'Limited-time bundle deals',
+        title: 'Beli 2, lebih hemat',
+        subtitle: 'Promo bundling terbatas',
         icon: Icons.local_offer_outlined,
       ),
       (
-        title: 'Faster pickup',
-        subtitle: 'Choose a machine near you',
+        title: 'Ambil lebih cepat',
+        subtitle: 'Pilih mesin terdekat',
         icon: Icons.location_on_outlined,
       ),
       (
-        title: 'Earn points',
-        subtitle: 'Redeem perks every week',
+        title: 'Kumpulkan poin',
+        subtitle: 'Tukar reward tiap minggu',
         icon: Icons.stars_outlined,
       ),
     ];

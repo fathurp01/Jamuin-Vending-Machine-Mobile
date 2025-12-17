@@ -27,6 +27,6 @@ void main() {
     await tester.pumpAndSettle();
 
     // With no stored session, app should land on Login.
-    expect(find.widgetWithText(AppBar, 'Login'), findsOneWidget);
+    expect(find.widgetWithText(AppBar, 'Masuk'), findsOneWidget);
   });
 }

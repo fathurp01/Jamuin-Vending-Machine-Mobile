@@ -32,7 +32,7 @@ class CartScreen extends ConsumerWidget {
         : true;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Cart')),
+      appBar: AppBar(title: const Text('Keranjang')),
       body: cart.items.isEmpty
           ? Center(
               child: Column(
@@ -45,12 +45,12 @@ class CartScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    'Your cart is empty',
+                    'Keranjang kamu kosong',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Browse the menu to add items.',
+                    'Lihat produk untuk menambahkan item.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,
                     ),
@@ -58,7 +58,7 @@ class CartScreen extends ConsumerWidget {
                   const SizedBox(height: 14),
                   FilledButton(
                     onPressed: () => context.push('/app/products'),
-                    child: const Text('Browse menu'),
+                    child: const Text('Lihat produk'),
                   ),
                 ],
               ),
@@ -77,14 +77,14 @@ class CartScreen extends ConsumerWidget {
                       Expanded(
                         child: Text(
                           session.selectedMachineName ??
-                              'Select a machine before checkout',
+                              'Pilih mesin sebelum checkout',
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(color: scheme.onSurfaceVariant),
                         ),
                       ),
                       TextButton(
                         onPressed: () => context.go('/app/map'),
-                        child: const Text('Select'),
+                        child: const Text('Pilih'),
                       ),
                     ],
                   ),
@@ -133,7 +133,7 @@ class CartScreen extends ConsumerWidget {
                                       ),
                                     ),
                                     IconButton(
-                                      tooltip: 'Remove',
+                                      tooltip: 'Hapus',
                                       onPressed: () => ref
                                           .read(cartControllerProvider.notifier)
                                           .remove(item.product.id),
@@ -152,8 +152,8 @@ class CartScreen extends ConsumerWidget {
                                   const SizedBox(height: 6),
                                   Text(
                                     isOverStock
-                                        ? 'Stock left: $stock (reduce quantity)'
-                                        : 'Stock left: $stock',
+                                        ? 'Sisa stok: $stock (kurangi jumlah)'
+                                        : 'Sisa stok: $stock',
                                     style: Theme.of(context).textTheme.bodySmall
                                         ?.copyWith(
                                           color: isOverStock
@@ -202,9 +202,9 @@ class CartScreen extends ConsumerWidget {
                     children: [
                       _Line(label: 'Subtotal', value: cart.subtotal),
                       const SizedBox(height: 8),
-                      _Line(label: 'Service fee', value: cart.serviceFee),
+                      _Line(label: 'Biaya layanan', value: cart.serviceFee),
                       const SizedBox(height: 8),
-                      _Line(label: 'Tax (11%)', value: cart.tax),
+                      _Line(label: 'Pajak (11%)', value: cart.tax),
                       const Divider(height: 22),
                       Row(
                         children: [

@@ -153,6 +153,7 @@ abstract class PaymentsRepository {
   Future<CreatePaymentResult> create({
     required int productId,
     required int quantity,
+    required int machineId,
   });
 
   Future<PaymentStatusDetail> status(String orderId);
@@ -170,12 +171,14 @@ final class ApiPaymentsRepository implements PaymentsRepository {
   Future<CreatePaymentResult> create({
     required int productId,
     required int quantity,
+    required int machineId,
   }) async {
     final res = await _dio.post<Map<String, Object?>>(
       '/payments/create',
       data: {
         'productId': productId,
         'quantity': quantity,
+        'machineId': machineId,
         'platform': platform,
       },
     );

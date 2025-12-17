@@ -12,6 +12,7 @@ import '../features/cart/presentation/cart_screen.dart';
 import '../features/checkout/presentation/checkout_screen.dart';
 import '../features/checkout/presentation/payment_webview_screen.dart';
 import '../features/checkout/presentation/transaction_status_screen.dart';
+import '../features/checkout/domain/payment_flow.dart';
 import '../features/expert_system/presentation/expert_system_screen.dart';
 import '../features/home/presentation/home_screen.dart';
 import '../features/map/presentation/map_screen.dart';
@@ -162,21 +163,41 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/app/payment/:orderId',
         builder: (context, state) {
           final orderId = state.pathParameters['orderId']!;
-          final snapUrl = state.extra;
-          if (snapUrl is! String || snapUrl.trim().isEmpty) {
+          final extra = state.extra;
+          String? snapUrl;
+          List<PaymentStep> remaining = const [];
+          if (extra is String) {
+            snapUrl = extra;
+          } else if (extra is PaymentFlowArgs) {
+            snapUrl = extra.snapUrl;
+            remaining = extra.remaining;
+          }
+
+          if (snapUrl == null || snapUrl.trim().isEmpty) {
             return Scaffold(
-              appBar: AppBar(title: const Text('Payment')),
-              body: const Center(child: Text('Missing payment URL.')),
+              appBar: AppBar(title: const Text('Pembayaran')),
+              body: const Center(child: Text('URL pembayaran tidak tersedia.')),
             );
           }
-          return PaymentWebViewScreen(orderId: orderId, snapUrl: snapUrl);
+          return PaymentWebViewScreen(
+            orderId: orderId,
+            snapUrl: snapUrl,
+            remaining: remaining,
+          );
         },
       ),
       GoRoute(
         path: '/app/tx/:id',
         builder: (context, state) {
           final id = state.pathParameters['id']!;
-          return TransactionStatusScreen(transactionId: id);
+          final extra = state.extra;
+          final remaining = extra is List<PaymentStep>
+              ? extra
+              : const <PaymentStep>[];
+          return TransactionStatusScreen(
+            transactionId: id,
+            remainingPayments: remaining,
+          );
         },
       ),
     ],

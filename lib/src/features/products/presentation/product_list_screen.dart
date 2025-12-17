@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../data/product_repository.dart';
+import '../../cart/application/cart_controller.dart';
 import '../../../shared/widgets/money_text.dart';
 import '../../../shared/widgets/rounded_card.dart';
 
@@ -12,10 +13,25 @@ class ProductListScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final products = ref.watch(productListProvider);
+    final cart = ref.watch(cartControllerProvider);
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Menu')),
+      appBar: AppBar(
+        title: const Text('Produk'),
+        actions: [
+          IconButton(
+            tooltip: 'Keranjang',
+            onPressed: () => context.go('/app/cart'),
+            icon: Badge(
+              isLabelVisible: cart.itemCount > 0,
+              label: Text('${cart.itemCount}'),
+              child: const Icon(Icons.shopping_bag_outlined),
+            ),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
       body: products.when(
         data: (items) => ListView.separated(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
@@ -69,8 +85,8 @@ class ProductListScreen extends ConsumerWidget {
                               const Spacer(),
                               Text(
                                 isOutOfStock
-                                    ? 'Out of stock'
-                                    : 'Stock: ${p.stock}',
+                                    ? 'Stok habis'
+                                    : 'Stok: ${p.stock}',
                                 style: Theme.of(context).textTheme.bodySmall
                                     ?.copyWith(
                                       color: isOutOfStock
@@ -93,7 +109,7 @@ class ProductListScreen extends ConsumerWidget {
             );
           },
         ),
-        error: (e, _) => Center(child: Text('Failed to load: $e')),
+        error: (e, _) => Center(child: Text('Gagal memuat: $e')),
         loading: () => const Center(child: CircularProgressIndicator()),
       ),
     );

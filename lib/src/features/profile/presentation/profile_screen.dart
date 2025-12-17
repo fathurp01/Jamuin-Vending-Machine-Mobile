@@ -43,6 +43,13 @@ class ProfileScreen extends ConsumerWidget {
                           color: scheme.onSurfaceVariant,
                         ),
                       ),
+                      const SizedBox(height: 2),
+                      Text(
+                        session.email ?? '-',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
                     ],
                   ),
                 ),

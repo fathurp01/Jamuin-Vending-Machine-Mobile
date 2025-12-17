@@ -69,20 +69,22 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _submitting = false);
-      messenger.showSnackBar(SnackBar(content: Text('Register failed: $e')));
+      messenger.showSnackBar(SnackBar(content: Text('Daftar gagal: $e')));
       return;
     }
 
     if (!mounted) return;
     setState(() => _submitting = false);
-    messenger.showSnackBar(const SnackBar(content: Text('Account created.')));
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Akun berhasil dibuat.')),
+    );
     router.go('/app/home');
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Register')),
+      appBar: AppBar(title: const Text('Daftar')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
@@ -96,7 +98,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   decoration: const InputDecoration(labelText: 'Name'),
                   validator: (v) {
                     final t = (v ?? '').trim();
-                    if (t.isEmpty) return 'Name is required';
+                    if (t.isEmpty) return 'Nama wajib diisi';
                     return null;
                   },
                 ),
@@ -105,13 +107,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   controller: _phoneCtrl,
                   keyboardType: TextInputType.phone,
                   textInputAction: TextInputAction.next,
-                  decoration: const InputDecoration(labelText: 'Phone'),
+                  decoration: const InputDecoration(labelText: 'Telepon'),
                   validator: (v) {
                     final value = (v ?? '').trim();
-                    if (value.isEmpty) return 'Phone is required';
+                    if (value.isEmpty) return 'Telepon wajib diisi';
                     final digitsOnly = RegExp(r'^\+?[0-9]{8,15}$');
                     if (!digitsOnly.hasMatch(value)) {
-                      return 'Enter a valid phone number';
+                      return 'Masukkan nomor telepon yang valid';
                     }
                     return null;
                   },
@@ -124,9 +126,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   decoration: const InputDecoration(labelText: 'Email'),
                   validator: (v) {
                     final t = (v ?? '').trim();
-                    if (t.isEmpty) return 'Email is required';
+                    if (t.isEmpty) return 'Email wajib diisi';
                     if (!t.contains('@') || !t.contains('.')) {
-                      return 'Enter a valid email';
+                      return 'Masukkan email yang valid';
                     }
                     return null;
                   },
@@ -139,8 +141,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   decoration: const InputDecoration(labelText: 'Password'),
                   validator: (v) {
                     final t = (v ?? '').trim();
-                    if (t.isEmpty) return 'Password is required';
-                    if (t.length < 6) return 'Min 6 characters';
+                    if (t.isEmpty) return 'Password wajib diisi';
+                    if (t.length < 6) return 'Minimal 6 karakter';
                     return null;
                   },
                 ),
@@ -150,13 +152,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   obscureText: true,
                   textInputAction: TextInputAction.done,
                   decoration: const InputDecoration(
-                    labelText: 'Confirm password',
+                    labelText: 'Konfirmasi password',
                   ),
                   validator: (v) {
                     final t = (v ?? '').trim();
-                    if (t.isEmpty) return 'Confirmation is required';
+                    if (t.isEmpty) return 'Konfirmasi wajib diisi';
                     if (t != _passCtrl.text.trim()) {
-                      return 'Passwords do not match';
+                      return 'Password tidak sama';
                     }
                     return null;
                   },
@@ -174,7 +176,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     height: 22,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text('Register'),
+                : const Text('Daftar'),
           ),
         ],
       ),

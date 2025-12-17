@@ -99,12 +99,12 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Stock',
+                      'Stok',
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      isOutOfStock ? 'Out of stock' : 'Stock: $stock',
+                      isOutOfStock ? 'Stok habis' : 'Stok: $stock',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: isOutOfStock ? scheme.error : scheme.primary,
                         fontWeight: isOutOfStock
@@ -114,7 +114,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                     ),
                     const Divider(height: 22),
                     Text(
-                      'Description',
+                      'Deskripsi',
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(height: 8),
@@ -124,7 +124,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'Benefits',
+                      'Manfaat',
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(height: 8),
@@ -136,7 +136,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                     Row(
                       children: [
                         Text(
-                          'Quantity',
+                          'Jumlah',
                           style: Theme.of(context).textTheme.titleSmall
                               ?.copyWith(fontWeight: FontWeight.w800),
                         ),
@@ -154,7 +154,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
             ],
           );
         },
-        error: (e, _) => Center(child: Text('Failed to load: $e')),
+        error: (e, _) => Center(child: Text('Gagal memuat: $e')),
         loading: () => const Center(child: CircularProgressIndicator()),
       ),
       bottomNavigationBar: SafeArea(
@@ -173,10 +173,12 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                           .read(cartControllerProvider.notifier)
                           .add(p, quantity: _qty);
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Added to cart')),
+                        const SnackBar(
+                          content: Text('Ditambahkan ke keranjang'),
+                        ),
                       );
                     },
-              child: const Text('Add to cart'),
+              child: const Text('Tambah ke keranjang'),
             );
           },
           orElse: () => const SizedBox.shrink(),

@@ -57,7 +57,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _submitting = false);
-      messenger.showSnackBar(SnackBar(content: Text('Login failed: $e')));
+      messenger.showSnackBar(SnackBar(content: Text('Login gagal: $e')));
       return;
     }
 
@@ -67,7 +67,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (!mounted) return;
     setState(() => _submitting = false);
 
-    messenger.showSnackBar(const SnackBar(content: Text('Logged in')));
+    messenger.showSnackBar(const SnackBar(content: Text('Berhasil masuk')));
     router.go('/app/home');
   }
 
@@ -76,7 +76,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Login')),
+      appBar: AppBar(title: const Text('Masuk')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
@@ -88,7 +88,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            'Sign in to continue (demo).',
+            'Masuk untuk melanjutkan (demo).',
             style: Theme.of(
               context,
             ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
@@ -105,9 +105,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   decoration: const InputDecoration(labelText: 'Email'),
                   validator: (v) {
                     final t = (v ?? '').trim();
-                    if (t.isEmpty) return 'Email is required';
+                    if (t.isEmpty) return 'Email wajib diisi';
                     if (!t.contains('@') || !t.contains('.')) {
-                      return 'Enter a valid email';
+                      return 'Masukkan email yang valid';
                     }
                     return null;
                   },
@@ -120,8 +120,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   decoration: const InputDecoration(labelText: 'Password'),
                   validator: (v) {
                     final t = (v ?? '').trim();
-                    if (t.isEmpty) return 'Password is required';
-                    if (t.length < 6) return 'Min 6 characters';
+                    if (t.isEmpty) return 'Password wajib diisi';
+                    if (t.length < 6) return 'Minimal 6 karakter';
                     return null;
                   },
                   onFieldSubmitted: (_) => _submitting ? null : _submit(),
@@ -138,12 +138,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     height: 22,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text('Login'),
+                : const Text('Masuk'),
           ),
           const SizedBox(height: 8),
           TextButton(
             onPressed: () => context.push('/auth/register'),
-            child: const Text('Create an account'),
+            child: const Text('Buat akun'),
           ),
         ],
       ),

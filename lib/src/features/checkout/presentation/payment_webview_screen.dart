@@ -2,15 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import '../domain/payment_flow.dart';
+
 class PaymentWebViewScreen extends StatefulWidget {
   const PaymentWebViewScreen({
     super.key,
     required this.orderId,
     required this.snapUrl,
+    this.remaining = const [],
   });
 
   final String orderId;
   final String snapUrl;
+  final List<PaymentStep> remaining;
 
   @override
   State<PaymentWebViewScreen> createState() => _PaymentWebViewScreenState();
@@ -39,7 +43,10 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
               _hasNavigated = true;
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (!mounted) return;
-                context.go('/app/tx/${widget.orderId}');
+                context.go(
+                  '/app/tx/${widget.orderId}',
+                  extra: widget.remaining,
+                );
               });
               return NavigationDecision.prevent;
             }
@@ -82,10 +89,11 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Payment'),
+        title: const Text('Pembayaran'),
         leading: IconButton(
           icon: const Icon(Icons.close),
-          onPressed: () => context.go('/app/tx/${widget.orderId}'),
+          onPressed: () =>
+              context.go('/app/tx/${widget.orderId}', extra: widget.remaining),
         ),
       ),
       body: Stack(
@@ -97,9 +105,10 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
       bottomNavigationBar: SafeArea(
         minimum: const EdgeInsets.fromLTRB(16, 10, 16, 16),
         child: FilledButton.icon(
-          onPressed: () => context.go('/app/tx/${widget.orderId}'),
+          onPressed: () =>
+              context.go('/app/tx/${widget.orderId}', extra: widget.remaining),
           icon: const Icon(Icons.receipt_long_outlined),
-          label: const Text('Check status'),
+          label: const Text('Cek status'),
         ),
       ),
     );

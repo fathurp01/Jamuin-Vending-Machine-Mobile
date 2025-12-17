@@ -3,13 +3,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../transactions/application/payments_providers.dart';
+import '../domain/payment_flow.dart';
 import '../../../shared/widgets/money_text.dart';
 import '../../../shared/widgets/rounded_card.dart';
 
 class TransactionStatusScreen extends ConsumerWidget {
-  const TransactionStatusScreen({super.key, required this.transactionId});
+  const TransactionStatusScreen({
+    super.key,
+    required this.transactionId,
+    this.remainingPayments = const [],
+  });
 
   final String transactionId;
+  final List<PaymentStep> remainingPayments;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -30,7 +36,7 @@ class TransactionStatusScreen extends ConsumerWidget {
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Text(
-              'Failed to load status.\n$e',
+              'Gagal memuat status.\n$e',
               textAlign: TextAlign.center,
             ),
           ),
@@ -40,20 +46,20 @@ class TransactionStatusScreen extends ConsumerWidget {
 
           final (title, subtitle, icon, color) = switch (normalized) {
             'paid' || 'settlement' => (
-              'Paid',
-              'Payment confirmed. Please pick up at the machine.',
+              'Berhasil',
+              'Pembayaran terkonfirmasi. Silakan ambil di mesin.',
               Icons.verified_outlined,
               scheme.primary,
             ),
             'failed' || 'expire' || 'cancel' || 'deny' => (
-              'Failed',
-              'Payment was not completed.',
+              'Gagal',
+              'Pembayaran tidak selesai.',
               Icons.error_outline,
               scheme.error,
             ),
             _ => (
-              'Pending',
-              'Waiting for payment confirmation.',
+              'Menunggu',
+              'Menunggu konfirmasi pembayaran.',
               Icons.receipt_long_outlined,
               scheme.secondary,
             ),
@@ -102,7 +108,7 @@ class TransactionStatusScreen extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Details',
+                      'Rincian',
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(height: 10),
@@ -112,23 +118,23 @@ class TransactionStatusScreen extends ConsumerWidget {
                     if ((detail.paymentType ?? '').trim().isNotEmpty) ...[
                       const SizedBox(height: 8),
                       _RowKV(
-                        label: 'Payment type',
+                        label: 'Metode pembayaran',
                         value: detail.paymentType!.trim(),
                       ),
                     ],
                     if (detail.paidAt != null) ...[
                       const SizedBox(height: 8),
                       _RowKV(
-                        label: 'Paid at',
+                        label: 'Waktu bayar',
                         value: detail.paidAt!.toLocal().toString(),
                       ),
                     ],
                     const SizedBox(height: 8),
-                    _RowKV(label: 'Customer', value: detail.customer.name),
+                    _RowKV(label: 'Pelanggan', value: detail.customer.name),
                     const SizedBox(height: 8),
                     _RowKV(label: 'Email', value: detail.customer.email),
                     const SizedBox(height: 8),
-                    _RowKV(label: 'Phone', value: detail.customer.phone),
+                    _RowKV(label: 'Telepon', value: detail.customer.phone),
                   ],
                 ),
               ),
@@ -138,7 +144,7 @@ class TransactionStatusScreen extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Items',
+                      'Item',
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(height: 10),
@@ -164,7 +170,7 @@ class TransactionStatusScreen extends ConsumerWidget {
                     Row(
                       children: [
                         Text(
-                          'Gross amount',
+                          'Jumlah total',
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(color: scheme.onSurfaceVariant),
                         ),
@@ -180,15 +186,36 @@ class TransactionStatusScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 14),
+              if (remainingPayments.isNotEmpty) ...[
+                FilledButton.icon(
+                  onPressed: () {
+                    final next = remainingPayments.first;
+                    context.go(
+                      '/app/payment/${next.orderId}',
+                      extra: PaymentFlowArgs(
+                        snapUrl: next.snapUrl,
+                        remaining: remainingPayments
+                            .skip(1)
+                            .toList(growable: false),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.payments_outlined),
+                  label: Text(
+                    'Bayar item berikutnya (${remainingPayments.length} tersisa)',
+                  ),
+                ),
+                const SizedBox(height: 10),
+              ],
               FilledButton(
                 onPressed: () => context.go('/app/history'),
-                child: const Text('View history'),
+                child: const Text('Lihat riwayat'),
               ),
               const SizedBox(height: 10),
               OutlinedButton(
                 onPressed: () =>
                     ref.invalidate(paymentStatusProvider(transactionId)),
-                child: const Text('Refresh status'),
+                child: const Text('Muat ulang status'),
               ),
             ],
           );

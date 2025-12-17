@@ -6,6 +6,7 @@ import '../../cart/application/cart_controller.dart';
 import '../../session/application/session_controller.dart';
 import '../application/checkout_controller.dart';
 import '../../transactions/domain/transaction_record.dart';
+import '../domain/payment_flow.dart';
 import '../../../shared/widgets/money_text.dart';
 import '../../../shared/widgets/rounded_card.dart';
 
@@ -51,11 +52,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
     final machineId = session.selectedMachineId;
     final hasSelectedMachine = machineId != null;
-    final hasSingleItem = cart.items.length == 1;
-    final stockOk = hasSingleItem
-        ? cart.items.values.single.quantity <=
-              cart.items.values.single.product.stock
-        : false;
+    final stockOk = cart.items.values.every(
+      (it) => it.quantity <= it.product.stock,
+    );
 
     return Scaffold(
       appBar: AppBar(title: const Text('Checkout')),
@@ -85,13 +84,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Vending machine',
+                          'Mesin vending',
                           style: Theme.of(context).textTheme.titleSmall
                               ?.copyWith(fontWeight: FontWeight.w800),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          session.selectedMachineName ?? 'Not selected',
+                          session.selectedMachineName ?? 'Belum dipilih',
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(color: scheme.onSurfaceVariant),
                         ),
@@ -100,7 +99,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   ),
                   TextButton(
                     onPressed: () => context.go('/app/map'),
-                    child: const Text('Change'),
+                    child: const Text('Ubah'),
                   ),
                 ],
               ),
@@ -111,7 +110,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Customer info',
+                    'Data pelanggan',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: 10),
@@ -119,12 +118,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                     controller: _nameCtrl,
                     textInputAction: TextInputAction.next,
                     decoration: const InputDecoration(
-                      labelText: 'Name',
+                      labelText: 'Nama',
                       prefixIcon: Icon(Icons.person_outline),
                     ),
                     validator: (v) {
                       final value = (v ?? '').trim();
-                      if (value.isEmpty) return 'Name is required';
+                      if (value.isEmpty) return 'Nama wajib diisi';
                       return null;
                     },
                   ),
@@ -139,11 +138,11 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                     ),
                     validator: (v) {
                       final value = (v ?? '').trim();
-                      if (value.isEmpty) return 'Email is required';
+                      if (value.isEmpty) return 'Email wajib diisi';
                       final emailOk = RegExp(
                         r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
                       ).hasMatch(value);
-                      if (!emailOk) return 'Enter a valid email';
+                      if (!emailOk) return 'Masukkan email yang valid';
                       return null;
                     },
                   ),
@@ -153,15 +152,15 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                     keyboardType: TextInputType.phone,
                     textInputAction: TextInputAction.next,
                     decoration: const InputDecoration(
-                      labelText: 'Phone',
+                      labelText: 'Telepon',
                       prefixIcon: Icon(Icons.phone_outlined),
                     ),
                     validator: (v) {
                       final value = (v ?? '').trim();
-                      if (value.isEmpty) return 'Phone is required';
+                      if (value.isEmpty) return 'Telepon wajib diisi';
                       final digitsOnly = RegExp(r'^\+?[0-9]{8,15}$');
                       if (!digitsOnly.hasMatch(value)) {
-                        return 'Enter a valid phone number';
+                        return 'Masukkan nomor telepon yang valid';
                       }
                       return null;
                     },
@@ -172,7 +171,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                     maxLines: 2,
                     textInputAction: TextInputAction.done,
                     decoration: const InputDecoration(
-                      labelText: 'Notes (optional)',
+                      labelText: 'Catatan (opsional)',
                       prefixIcon: Icon(Icons.sticky_note_2_outlined),
                     ),
                   ),
@@ -180,30 +179,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            if (!hasSingleItem)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: RoundedCard(
-                  child: Row(
-                    children: [
-                      Icon(Icons.info_outline, color: scheme.primary),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Checkout currently supports 1 product per transaction. Please adjust your cart.',
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: scheme.onSurfaceVariant),
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () => context.go('/app/cart'),
-                        child: const Text('Cart'),
-                      ),
-                    ],
-                  ),
-                ),
-              )
-            else if (hasSelectedMachine && !stockOk)
+            if (hasSelectedMachine && !stockOk)
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: RoundedCard(
@@ -213,14 +189,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          'Quantity exceeds available product stock.\nPlease adjust quantities in your cart.',
+                          'Jumlah melebihi stok yang tersedia.\nSilakan sesuaikan jumlah di keranjang.',
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(color: scheme.onSurfaceVariant),
                         ),
                       ),
                       TextButton(
                         onPressed: () => context.go('/app/cart'),
-                        child: const Text('Cart'),
+                        child: const Text('Keranjang'),
                       ),
                     ],
                   ),
@@ -231,7 +207,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Order summary',
+                    'Ringkasan pesanan',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: 10),
@@ -251,9 +227,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   const Divider(height: 22),
                   _Line(label: 'Subtotal', value: cart.subtotal),
                   const SizedBox(height: 8),
-                  _Line(label: 'Service fee', value: cart.serviceFee),
+                  _Line(label: 'Biaya layanan', value: cart.serviceFee),
                   const SizedBox(height: 8),
-                  _Line(label: 'Tax (11%)', value: cart.tax),
+                  _Line(label: 'Pajak (11%)', value: cart.tax),
                   const Divider(height: 22),
                   Row(
                     children: [
@@ -295,7 +271,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Payment',
+                          'Pembayaran',
                           style: Theme.of(context).textTheme.titleSmall
                               ?.copyWith(fontWeight: FontWeight.w800),
                         ),
@@ -313,7 +289,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'After completing payment, tap “Check status”.',
+              'Setelah menyelesaikan pembayaran, tekan “Cek status”.',
               style: Theme.of(
                 context,
               ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
@@ -325,7 +301,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         minimum: const EdgeInsets.fromLTRB(16, 10, 16, 16),
         child: FilledButton(
           onPressed:
-              (_placing || !hasSelectedMachine || !hasSingleItem || !stockOk)
+              (_placing ||
+                  !hasSelectedMachine ||
+                  cart.subtotal == 0 ||
+                  !stockOk)
               ? null
               : () async {
                   final messenger = ScaffoldMessenger.of(context);
@@ -336,7 +315,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   if (session.selectedMachineName == null) {
                     messenger.showSnackBar(
                       const SnackBar(
-                        content: Text('Please select a vending machine first.'),
+                        content: Text(
+                          'Silakan pilih mesin vending terlebih dahulu.',
+                        ),
                       ),
                     );
                     return;
@@ -357,20 +338,25 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   if (!mounted) return;
                   setState(() => _placing = false);
 
-                  final orderId = result.orderId;
-                  final snapUrl = result.snapUrl;
-                  if (orderId == null || snapUrl == null) {
+                  final first = result.first;
+                  if (first == null) {
                     if (!mounted) return;
                     messenger.showSnackBar(
                       SnackBar(
-                        content: Text(result.error ?? 'Checkout failed.'),
+                        content: Text(result.error ?? 'Checkout gagal.'),
                       ),
                     );
                     return;
                   }
 
                   if (!mounted) return;
-                  router.go('/app/payment/$orderId', extra: snapUrl);
+                  router.go(
+                    '/app/payment/${first.orderId}',
+                    extra: PaymentFlowArgs(
+                      snapUrl: first.snapUrl,
+                      remaining: result.remaining,
+                    ),
+                  );
                 },
           child: _placing
               ? const SizedBox(
@@ -378,7 +364,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   height: 22,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Text('Place order'),
+              : const Text('Buat pesanan'),
         ),
       ),
     );

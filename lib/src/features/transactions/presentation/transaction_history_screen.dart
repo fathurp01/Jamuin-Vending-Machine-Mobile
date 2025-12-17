@@ -15,14 +15,14 @@ class TransactionHistoryScreen extends ConsumerWidget {
     final historyAsync = ref.watch(paymentHistoryProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('History')),
+      appBar: AppBar(title: const Text('Riwayat')),
       body: historyAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Text(
-              'Failed to load history.\n$e',
+              'Gagal memuat riwayat.\n$e',
               textAlign: TextAlign.center,
             ),
           ),
@@ -40,12 +40,12 @@ class TransactionHistoryScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    'No transactions yet',
+                    'Belum ada transaksi',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Your completed and pending orders will appear here.',
+                    'Transaksi berhasil dan tertunda akan muncul di sini.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,
                     ),
@@ -67,18 +67,22 @@ class TransactionHistoryScreen extends ConsumerWidget {
               itemBuilder: (context, index) {
                 final tx = items[index];
                 final normalized = tx.status.trim().toLowerCase();
+                final dateText = MaterialLocalizations.of(
+                  context,
+                ).formatShortDate(tx.createdAt.toLocal());
+                final paymentType = (tx.paymentType ?? '').trim();
 
                 final (title, color, icon) = switch (normalized) {
                   'paid' || 'settlement' => (
-                    'Paid',
+                    'Berhasil',
                     scheme.primary,
                     Icons.check_circle_outline,
                   ),
                   'failed' ||
                   'expire' ||
                   'cancel' ||
-                  'deny' => ('Failed', scheme.error, Icons.error_outline),
-                  _ => ('Pending', scheme.secondary, Icons.schedule_outlined),
+                  'deny' => ('Gagal', scheme.error, Icons.error_outline),
+                  _ => ('Menunggu', scheme.secondary, Icons.schedule_outlined),
                 };
 
                 return InkWell(
@@ -123,7 +127,15 @@ class TransactionHistoryScreen extends ConsumerWidget {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                tx.product.name,
+                                '${tx.quantity}× ${tx.product.name}',
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(color: scheme.onSurfaceVariant),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                paymentType.isEmpty
+                                    ? dateText
+                                    : '$dateText • $paymentType',
                                 style: Theme.of(context).textTheme.bodySmall
                                     ?.copyWith(color: scheme.onSurfaceVariant),
                               ),
