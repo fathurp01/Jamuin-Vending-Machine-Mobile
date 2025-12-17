@@ -5,6 +5,39 @@ import 'package:go_router/go_router.dart';
 import '../../session/application/session_controller.dart';
 import '../../session/application/session_persistence_providers.dart';
 import '../../../shared/widgets/rounded_card.dart';
+import '../../../core/networking/dio_provider.dart';
+
+final _machineDashboardProvider = FutureProvider<Map<String, Object?>>((
+  ref,
+) async {
+  final dio = ref.watch(dioProvider);
+  final res = await dio.get<Map<String, Object?>>('/machines/dashboard');
+  return res.data ?? const <String, Object?>{};
+});
+
+final _adminTransactionsSummaryProvider = FutureProvider<Map<String, int>>((
+  ref,
+) async {
+  final dio = ref.watch(dioProvider);
+  final res = await dio.get<List<dynamic>>('/payments/transactions');
+  final data = res.data ?? const [];
+
+  int totalOrders = 0;
+  int totalRevenue = 0;
+
+  for (final v in data) {
+    if (v is! Map) continue;
+    final m = v.cast<String, Object?>();
+    totalOrders += 1;
+    final status = ((m['status'] as String?) ?? '').trim().toLowerCase();
+    final gross = ((m['grossAmount'] as num?) ?? 0).toInt();
+    if (status == 'success' || status == 'paid' || status == 'settlement') {
+      totalRevenue += gross;
+    }
+  }
+
+  return {'orders': totalOrders, 'revenue': totalRevenue};
+});
 
 class AdminDashboardScreen extends ConsumerWidget {
   const AdminDashboardScreen({super.key});
@@ -104,44 +137,70 @@ class AdminDashboardScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 12),
-          Row(
-            children: const [
-              Expanded(
-                child: _MetricCard(
-                  title: 'Orders',
-                  value: '128',
-                  icon: Icons.receipt_long_outlined,
-                ),
-              ),
-              SizedBox(width: 12),
-              Expanded(
-                child: _MetricCard(
-                  title: 'Revenue',
-                  value: 'Rp 3.9M',
-                  icon: Icons.payments_outlined,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: const [
-              Expanded(
-                child: _MetricCard(
-                  title: 'Machines Online',
-                  value: '12',
-                  icon: Icons.wifi_tethering_outlined,
-                ),
-              ),
-              SizedBox(width: 12),
-              Expanded(
-                child: _MetricCard(
-                  title: 'Alerts',
-                  value: '2',
-                  icon: Icons.warning_amber_outlined,
-                ),
-              ),
-            ],
+          Consumer(
+            builder: (context, ref, _) {
+              final dashAsync = ref.watch(_machineDashboardProvider);
+              final sumAsync = ref.watch(_adminTransactionsSummaryProvider);
+
+              final online = dashAsync.valueOrNull?['online'];
+              final maintenance = dashAsync.valueOrNull?['maintenance'];
+
+              final orders = sumAsync.valueOrNull?['orders'];
+              final revenue = sumAsync.valueOrNull?['revenue'];
+
+              String fmtRp(int v) {
+                // Simple compact formatting without adding extra dependencies.
+                if (v >= 1000000) {
+                  return 'Rp ${(v / 1000000).toStringAsFixed(1)}M';
+                }
+                if (v >= 1000) return 'Rp ${(v / 1000).toStringAsFixed(1)}K';
+                return 'Rp $v';
+              }
+
+              return Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _MetricCard(
+                          title: 'Orders',
+                          value: orders?.toString() ?? '—',
+                          icon: Icons.receipt_long_outlined,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _MetricCard(
+                          title: 'Revenue',
+                          value: revenue == null ? '—' : fmtRp(revenue),
+                          icon: Icons.payments_outlined,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _MetricCard(
+                          title: 'Machines Online',
+                          value: online?.toString() ?? '—',
+                          icon: Icons.wifi_tethering_outlined,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _MetricCard(
+                          title: 'Maintenance',
+                          value: maintenance?.toString() ?? '—',
+                          icon: Icons.warning_amber_outlined,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 16),
           RoundedCard(
@@ -157,7 +216,7 @@ class AdminDashboardScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'Role-based area (UI only). Hook to real APIs later.',
+                        'Terhubung ke backend untuk transaksi & stok.',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: scheme.onSurfaceVariant,
                         ),

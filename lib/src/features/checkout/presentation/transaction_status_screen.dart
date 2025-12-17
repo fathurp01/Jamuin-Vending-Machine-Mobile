@@ -43,6 +43,11 @@ class TransactionStatusScreen extends ConsumerWidget {
         ),
         data: (detail) {
           final normalized = detail.status.trim().toLowerCase();
+          final canCancel = switch (normalized) {
+            'paid' || 'settlement' || 'success' => false,
+            'failed' || 'expire' || 'cancel' || 'deny' => false,
+            _ => true,
+          };
 
           final (title, subtitle, icon, color) = switch (normalized) {
             'paid' || 'settlement' => (
@@ -212,6 +217,47 @@ class TransactionStatusScreen extends ConsumerWidget {
                 child: const Text('Lihat riwayat'),
               ),
               const SizedBox(height: 10),
+              if (canCancel) ...[
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    final ok = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Batalkan pembayaran?'),
+                        content: const Text(
+                          'Pembayaran yang dibatalkan tidak dapat dilanjutkan. Lanjutkan?',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(false),
+                            child: const Text('Tidak'),
+                          ),
+                          FilledButton(
+                            onPressed: () => Navigator.of(context).pop(true),
+                            child: const Text('Ya, batalkan'),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    if (ok != true) return;
+                    try {
+                      await ref
+                          .read(paymentsRepositoryProvider)
+                          .cancel(transactionId);
+                      ref.invalidate(paymentStatusProvider(transactionId));
+                    } catch (e) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Gagal membatalkan: $e')),
+                      );
+                    }
+                  },
+                  icon: const Icon(Icons.cancel_outlined),
+                  label: const Text('Batalkan pembayaran'),
+                ),
+                const SizedBox(height: 10),
+              ],
               OutlinedButton(
                 onPressed: () =>
                     ref.invalidate(paymentStatusProvider(transactionId)),

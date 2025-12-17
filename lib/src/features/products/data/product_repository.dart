@@ -7,6 +7,9 @@ import '../../../core/networking/dio_provider.dart';
 abstract class ProductRepository {
   Future<List<Product>> list();
   Future<Product?> getById(String id);
+
+  /// Updates product fields (currently used for stock management).
+  Future<Product?> updateStock({required String id, required int stock});
 }
 
 final class ApiProductRepository implements ProductRepository {
@@ -31,6 +34,24 @@ final class ApiProductRepository implements ProductRepository {
 
     try {
       final res = await _dio.get<Map<String, Object?>>('/products/$numeric');
+      final data = res.data;
+      if (data == null) return null;
+      return Product.fromJson(data);
+    } on DioException {
+      return null;
+    }
+  }
+
+  @override
+  Future<Product?> updateStock({required String id, required int stock}) async {
+    final numeric = int.tryParse(id);
+    if (numeric == null) return null;
+
+    try {
+      final res = await _dio.patch<Map<String, Object?>>(
+        '/products/$numeric',
+        data: {'stok': stock},
+      );
       final data = res.data;
       if (data == null) return null;
       return Product.fromJson(data);

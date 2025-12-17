@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../inventory/application/inventory_controller.dart';
-import '../../map/presentation/machine_providers.dart';
 import '../../products/data/product_repository.dart';
 import '../../session/application/session_controller.dart';
 import '../../../shared/widgets/rounded_card.dart';
@@ -15,16 +13,7 @@ class AdminStockScreen extends ConsumerStatefulWidget {
 }
 
 class _AdminStockScreenState extends ConsumerState<AdminStockScreen> {
-  String? _machineId;
-
-  @override
-  void initState() {
-    super.initState();
-    final machines = ref.read(machinesProvider);
-    if (machines.isNotEmpty) {
-      _machineId = machines.first.id;
-    }
-  }
+  final Map<String, int> _pendingStock = {};
 
   @override
   Widget build(BuildContext context) {
@@ -59,28 +48,23 @@ class _AdminStockScreenState extends ConsumerState<AdminStockScreen> {
       );
     }
 
-    final machines = ref.watch(machinesProvider);
-    final effectiveMachineId =
-        _machineId ?? (machines.isNotEmpty ? machines.first.id : null);
-
     final productsAsync = ref.watch(productListProvider);
-    final inventory = ref.watch(inventoryControllerProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Manage Stock'),
         actions: [
           IconButton(
-            tooltip: 'Reset defaults',
+            tooltip: 'Reset perubahan',
             icon: const Icon(Icons.refresh_outlined),
             onPressed: () async {
               final ok = await showDialog<bool>(
                 context: context,
                 builder: (context) {
                   return AlertDialog(
-                    title: const Text('Reset stock?'),
+                    title: const Text('Reset perubahan?'),
                     content: const Text(
-                      'Restore inventory for all machines to default values.',
+                      'Ini hanya menghapus perubahan stok yang belum disimpan.',
                     ),
                     actions: [
                       TextButton(
@@ -97,9 +81,8 @@ class _AdminStockScreenState extends ConsumerState<AdminStockScreen> {
               );
 
               if (ok != true) return;
-              await ref
-                  .read(inventoryControllerProvider.notifier)
-                  .resetToDefaults();
+              if (!mounted) return;
+              setState(_pendingStock.clear);
             },
           ),
         ],
@@ -111,38 +94,36 @@ class _AdminStockScreenState extends ConsumerState<AdminStockScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Machine', style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 10),
-                if (machines.isEmpty)
-                  Text(
-                    'No machines available.',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  )
-                else
-                  DropdownButtonFormField<String>(
-                    key: ValueKey<String?>(effectiveMachineId),
-                    initialValue: effectiveMachineId,
-                    decoration: const InputDecoration(
-                      labelText: 'Select machine',
-                    ),
-                    items: [
-                      for (final m in machines)
-                        DropdownMenuItem(value: m.id, child: Text(m.name)),
-                    ],
-                    onChanged: (v) => setState(() => _machineId = v),
+                Text(
+                  'Stok Produk (Global)',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Menggunakan endpoint PATCH /products/:id (field stok).',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
                   ),
+                ),
               ],
             ),
           ),
           const SizedBox(height: 12),
           productsAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, __) => RoundedCard(
+              child: Text(
+                'Gagal memuat produk.\n$e',
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+              ),
+            ),
             data: (products) {
-              if (effectiveMachineId == null) {
+              if (products.isEmpty) {
                 return RoundedCard(
                   child: Text(
-                    'Select a machine to edit stock.',
+                    'Belum ada produk.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,
                     ),
@@ -153,29 +134,44 @@ class _AdminStockScreenState extends ConsumerState<AdminStockScreen> {
               return Column(
                 children: [
                   for (final p in products) ...[
-                    _StockRow(
-                      machineId: effectiveMachineId,
+                    _GlobalStockRow(
                       productId: p.id,
                       productName: p.name,
-                      stock: inventory.stockFor(
-                        machineId: effectiveMachineId,
-                        productId: p.id,
-                      ),
+                      currentStock: p.stock,
+                      pendingStock: _pendingStock[p.id],
+                      onSetPending: (v) =>
+                          setState(() => _pendingStock[p.id] = v),
+                      onSave: () async {
+                        final nextStock = _pendingStock[p.id] ?? p.stock;
+                        final repo = ref.read(productRepositoryProvider);
+                        final updated = await repo.updateStock(
+                          id: p.id,
+                          stock: nextStock,
+                        );
+
+                        if (!context.mounted) return;
+                        if (updated == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Gagal menyimpan stok.'),
+                            ),
+                          );
+                          return;
+                        }
+
+                        ref.invalidate(productListProvider);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Stok berhasil diperbarui.'),
+                          ),
+                        );
+                      },
                     ),
                     const SizedBox(height: 10),
                   ],
                 ],
               );
             },
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (_, __) => RoundedCard(
-              child: Text(
-                'Failed to load products.',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-              ),
-            ),
           ),
         ],
       ),
@@ -183,22 +179,27 @@ class _AdminStockScreenState extends ConsumerState<AdminStockScreen> {
   }
 }
 
-class _StockRow extends ConsumerWidget {
-  const _StockRow({
-    required this.machineId,
+class _GlobalStockRow extends StatelessWidget {
+  const _GlobalStockRow({
     required this.productId,
     required this.productName,
-    required this.stock,
+    required this.currentStock,
+    required this.pendingStock,
+    required this.onSetPending,
+    required this.onSave,
   });
 
-  final String machineId;
   final String productId;
   final String productName;
-  final int stock;
+  final int currentStock;
+  final int? pendingStock;
+  final ValueChanged<int> onSetPending;
+  final VoidCallback onSave;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final value = pendingStock ?? currentStock;
 
     return RoundedCard(
       child: Row(
@@ -215,34 +216,38 @@ class _StockRow extends ConsumerWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Stock: $stock',
+                  'Stok saat ini: $currentStock',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: scheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Stok baru: $value',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ],
             ),
           ),
-          IconButton(
-            tooltip: 'Decrease',
-            onPressed: stock <= 0
-                ? null
-                : () => ref
-                      .read(inventoryControllerProvider.notifier)
-                      .addStock(
-                        machineId: machineId,
-                        productId: productId,
-                        delta: -1,
-                      ),
-            icon: const Icon(Icons.remove_circle_outline),
+          Column(
+            children: [
+              IconButton(
+                tooltip: 'Kurangi',
+                onPressed: value <= 0 ? null : () => onSetPending(value - 1),
+                icon: const Icon(Icons.remove_circle_outline),
+              ),
+              IconButton(
+                tooltip: 'Tambah',
+                onPressed: () => onSetPending(value + 1),
+                icon: const Icon(Icons.add_circle_outline),
+              ),
+            ],
           ),
-          IconButton(
-            tooltip: 'Increase',
-            onPressed: () => ref
-                .read(inventoryControllerProvider.notifier)
-                .addStock(machineId: machineId, productId: productId, delta: 1),
-            icon: const Icon(Icons.add_circle_outline),
-          ),
+          const SizedBox(width: 6),
+          FilledButton(onPressed: onSave, child: const Text('Simpan')),
         ],
       ),
     );

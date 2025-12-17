@@ -6,12 +6,14 @@ class AuthUser {
     required this.name,
     required this.email,
     required this.phone,
+    required this.role,
   });
 
   final int id;
   final String name;
   final String email;
   final String phone;
+  final String role;
 
   factory AuthUser.fromJson(Map<String, Object?> json) {
     return AuthUser(
@@ -19,6 +21,7 @@ class AuthUser {
       name: (json['name'] as String?) ?? '',
       email: (json['email'] as String?) ?? '',
       phone: (json['phone'] as String?) ?? '',
+      role: (json['role'] as String?) ?? 'user',
     );
   }
 }

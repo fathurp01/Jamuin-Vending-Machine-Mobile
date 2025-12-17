@@ -60,7 +60,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             email: result.user.email,
             phone: result.user.phone,
             token: result.token,
-            role: UserRole.customer,
+            role: result.user.role == 'admin'
+                ? UserRole.admin
+                : UserRole.customer,
           );
 
       await ref

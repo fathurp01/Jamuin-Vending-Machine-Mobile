@@ -5,6 +5,7 @@ import 'package:maplibre_gl/maplibre_gl.dart';
 import '../../../core/config/public_apis.dart';
 import '../../session/application/session_controller.dart';
 import '../../session/application/session_persistence_providers.dart';
+import '../application/machine_realtime_controller.dart';
 import 'machine_models.dart';
 import 'machine_providers.dart';
 
@@ -37,7 +38,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text('Selected: ${machine.name}')));
+    ).showSnackBar(SnackBar(content: Text('Terpilih: ${machine.name}')));
   }
 
   void _onSymbolTapped(Symbol symbol) {
@@ -53,10 +54,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     _symbolsAdded = true;
 
     // Add a symbol per machine and keep a lookup for tap handling.
-    for (final m in machines) {
+    for (final m in machines.where((m) => m.hasCoordinates)) {
       final symbol = await controller.addSymbol(
         SymbolOptions(
-          geometry: LatLng(m.lat, m.lng),
+          geometry: LatLng(m.lat!, m.lng!),
           iconImage: 'marker-15',
           iconSize: 1.3,
           textField: m.name,
@@ -81,113 +82,171 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         body: Center(child: Text('Failed to initialize storage: $e')),
       ),
       data: (_) {
-        final machines = ref.watch(machinesProvider);
+        final machinesAsync = ref.watch(machinesProvider);
         final scheme = Theme.of(context).colorScheme;
         final session = ref.watch(sessionControllerProvider);
 
-        Widget machineListFallback({String? header}) {
-          return Scaffold(
-            appBar: AppBar(title: const Text('Machines')),
-            body: ListView.separated(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-              itemCount: machines.length + (header == null ? 0 : 1),
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                if (header != null) {
-                  if (index == 0) {
-                    return Text(
-                      header,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    );
-                  }
-                  index -= 1;
-                }
-
-                final m = machines[index];
-                return ListTile(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  tileColor: scheme.surfaceContainerHighest,
-                  title: Text(
-                    m.name,
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  subtitle: Text(
-                    'Lat ${m.lat}, Lng ${m.lng}',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => _persistSelectedMachine(m),
-                );
-              },
-            ),
-          );
-        }
-
-        if (machines.isEmpty) {
-          return machineListFallback(header: 'No machines available.');
-        }
-
-        final initial = LatLng(machines.first.lat, machines.first.lng);
-
-        return Scaffold(
-          appBar: AppBar(title: const Text('Machines')),
-          body: Stack(
-            children: [
-              MapLibreMap(
-                styleString: PublicApis.maptilerStreetsV4StyleUrl,
-                initialCameraPosition: CameraPosition(
-                  target: initial,
-                  zoom: 13.2,
-                ),
-                onMapCreated: (c) {
-                  _controller = c;
-                  c.onSymbolTapped.add(_onSymbolTapped);
-                },
-                onStyleLoadedCallback: () => _addMachineSymbols(machines),
-                myLocationEnabled: false,
-                myLocationTrackingMode: MyLocationTrackingMode.none,
-                compassEnabled: false,
-                rotateGesturesEnabled: true,
-                tiltGesturesEnabled: false,
-              ),
-              Positioned(
-                left: 16,
-                right: 16,
-                bottom: 16,
-                child: Material(
-                  color: scheme.surface,
-                  borderRadius: BorderRadius.circular(18),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.store_mall_directory_outlined),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            session.selectedMachineName ??
-                                'Tap a marker to select a machine',
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
+        return machinesAsync.when(
+          loading: () => Scaffold(
+            appBar: AppBar(title: const Text('Pilih mesin')),
+            body: const Center(child: CircularProgressIndicator()),
           ),
+          error: (e, __) => Scaffold(
+            appBar: AppBar(title: const Text('Pilih mesin')),
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  'Gagal memuat daftar mesin.\n$e',
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+          ),
+          data: (machines) {
+            final realtime = ref.watch(machineRealtimeProvider);
+
+            Widget machineListFallback({String? header}) {
+              return Scaffold(
+                appBar: AppBar(title: const Text('Pilih mesin')),
+                body: ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                  itemCount: machines.length + (header == null ? 0 : 1),
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemBuilder: (context, index) {
+                    if (header != null) {
+                      if (index == 0) {
+                        return Text(
+                          header,
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(color: scheme.onSurfaceVariant),
+                        );
+                      }
+                      index -= 1;
+                    }
+
+                    final m = machines[index];
+                    final numericId = int.tryParse(m.id);
+                    final live = numericId == null ? null : realtime[numericId];
+                    final liveBits = <String>[];
+                    if ((m.status).trim().isNotEmpty) {
+                      liveBits.add('Status: ${m.status}');
+                    } else if ((live?.status ?? '').trim().isNotEmpty) {
+                      liveBits.add('Status: ${live!.status}');
+                    }
+
+                    if (live?.temperature != null) {
+                      liveBits.add(
+                        'Temp: ${live!.temperature!.toStringAsFixed(1)}°C',
+                      );
+                    }
+                    if (live?.humidity != null) {
+                      liveBits.add(
+                        'RH: ${live!.humidity!.toStringAsFixed(0)}%',
+                      );
+                    }
+
+                    return ListTile(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      tileColor: scheme.surfaceContainerHighest,
+                      title: Text(
+                        m.name,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      subtitle: Text(
+                        [
+                          m.location,
+                          if (liveBits.isNotEmpty) liveBits.join(' • '),
+                        ].where((e) => e.trim().isNotEmpty).join('\n'),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => _persistSelectedMachine(m),
+                    );
+                  },
+                ),
+              );
+            }
+
+            if (machines.isEmpty) {
+              return machineListFallback(header: 'Belum ada mesin online.');
+            }
+
+            final machinesWithCoordinates = machines
+                .where((m) => m.hasCoordinates)
+                .toList(growable: false);
+            if (machinesWithCoordinates.isEmpty) {
+              // Backend does not provide coordinates, so we fall back to a simple list.
+              return machineListFallback(
+                header: 'Pilih mesin online yang tersedia.',
+              );
+            }
+
+            final initial = LatLng(
+              machinesWithCoordinates.first.lat!,
+              machinesWithCoordinates.first.lng!,
+            );
+
+            return Scaffold(
+              appBar: AppBar(title: const Text('Pilih mesin')),
+              body: Stack(
+                children: [
+                  MapLibreMap(
+                    styleString: PublicApis.maptilerStreetsV4StyleUrl,
+                    initialCameraPosition: CameraPosition(
+                      target: initial,
+                      zoom: 13.2,
+                    ),
+                    onMapCreated: (c) {
+                      _controller = c;
+                      c.onSymbolTapped.add(_onSymbolTapped);
+                    },
+                    onStyleLoadedCallback: () =>
+                        _addMachineSymbols(machinesWithCoordinates),
+                    myLocationEnabled: false,
+                    myLocationTrackingMode: MyLocationTrackingMode.none,
+                    compassEnabled: false,
+                    rotateGesturesEnabled: true,
+                    tiltGesturesEnabled: false,
+                  ),
+                  Positioned(
+                    left: 16,
+                    right: 16,
+                    bottom: 16,
+                    child: Material(
+                      color: scheme.surface,
+                      borderRadius: BorderRadius.circular(18),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.store_mall_directory_outlined),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                session.selectedMachineName ??
+                                    'Pilih mesin dari daftar',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
         );
       },
     );

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../inventory/application/inventory_controller.dart';
 import '../../session/application/session_controller.dart';
 import '../application/cart_controller.dart';
 import '../../../shared/widgets/money_text.dart';
@@ -16,19 +15,12 @@ class CartScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final cart = ref.watch(cartControllerProvider);
     final session = ref.watch(sessionControllerProvider);
-    final inventory = ref.watch(inventoryControllerProvider);
     final scheme = Theme.of(context).colorScheme;
 
     final machineId = session.selectedMachineId;
     final hasSelectedMachine = machineId != null;
     final hasStockIssues = hasSelectedMachine
-        ? cart.items.values.any((it) {
-            final stock = inventory.stockFor(
-              machineId: machineId,
-              productId: it.product.id,
-            );
-            return it.quantity > stock;
-          })
+        ? cart.items.values.any((it) => it.quantity > it.product.stock)
         : true;
 
     return Scaffold(
@@ -91,12 +83,7 @@ class CartScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 12),
                 ...cart.items.values.map((item) {
-                  final stock = hasSelectedMachine
-                      ? inventory.stockFor(
-                          machineId: machineId,
-                          productId: item.product.id,
-                        )
-                      : null;
+                  final stock = hasSelectedMachine ? item.product.stock : null;
                   final isOverStock = stock != null && item.quantity > stock;
                   final maxQty = stock == null ? 99 : (stock <= 0 ? 1 : stock);
 

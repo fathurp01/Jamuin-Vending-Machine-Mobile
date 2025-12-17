@@ -5,8 +5,21 @@ import 'package:go_router/go_router.dart';
 import '../../session/application/session_controller.dart';
 import '../../../shared/widgets/money_text.dart';
 import '../../../shared/widgets/rounded_card.dart';
-import '../../transactions/application/transaction_history_controller.dart';
-import '../../transactions/domain/transaction_record.dart';
+import '../../../core/networking/dio_provider.dart';
+import '../data/admin_transactions_repository.dart';
+
+final _adminTransactionsRepositoryProvider =
+    Provider<AdminTransactionsRepository>((ref) {
+      final dio = ref.watch(dioProvider);
+      return ApiAdminTransactionsRepository(dio);
+    });
+
+final _adminTransactionsProvider = FutureProvider<List<AdminTransactionItem>>((
+  ref,
+) async {
+  final repo = ref.read(_adminTransactionsRepositoryProvider);
+  return repo.listAll();
+});
 
 class AdminTransactionsScreen extends ConsumerWidget {
   const AdminTransactionsScreen({super.key});
@@ -44,12 +57,24 @@ class AdminTransactionsScreen extends ConsumerWidget {
       );
     }
 
-    final items = ref.watch(transactionHistoryControllerProvider);
+    final itemsAsync = ref.watch(_adminTransactionsProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Transactions')),
-      body: items.isEmpty
-          ? Center(
+      body: itemsAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              'Gagal memuat transaksi.\n$e',
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+        data: (items) {
+          if (items.isEmpty) {
+            return Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -60,47 +85,50 @@ class AdminTransactionsScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    'No transactions yet',
+                    'Belum ada transaksi',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Orders created by customers will appear here.',
+                    'Transaksi pelanggan akan muncul di sini.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,
                     ),
                   ),
                 ],
               ),
-            )
-          : ListView.separated(
+            );
+          }
+
+          return RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(_adminTransactionsProvider);
+              await ref.read(_adminTransactionsProvider.future);
+            },
+            child: ListView.separated(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
               itemCount: items.length,
               separatorBuilder: (_, __) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
                 final tx = items[index];
+                final normalized = tx.status.trim().toLowerCase();
 
-                final (title, color, icon) = switch (tx.status) {
-                  TransactionStatus.pending => (
-                    'Pending',
-                    scheme.secondary,
-                    Icons.schedule_outlined,
-                  ),
-                  TransactionStatus.paid => (
-                    'Paid',
+                final (title, color, icon) = switch (normalized) {
+                  'success' || 'paid' || 'settlement' => (
+                    'Berhasil',
                     scheme.primary,
                     Icons.check_circle_outline,
                   ),
-                  TransactionStatus.failed => (
-                    'Failed',
-                    scheme.error,
-                    Icons.error_outline,
-                  ),
+                  'failed' ||
+                  'expire' ||
+                  'cancel' ||
+                  'deny' => ('Gagal', scheme.error, Icons.error_outline),
+                  _ => ('Menunggu', scheme.secondary, Icons.schedule_outlined),
                 };
 
                 return InkWell(
                   borderRadius: BorderRadius.circular(20),
-                  onTap: () => context.push('/app/tx/${tx.id}'),
+                  onTap: () => context.push('/app/tx/${tx.orderId}'),
                   child: RoundedCard(
                     child: Row(
                       children: [
@@ -122,7 +150,7 @@ class AdminTransactionsScreen extends ConsumerWidget {
                                 children: [
                                   Expanded(
                                     child: Text(
-                                      tx.id,
+                                      tx.orderId,
                                       style: Theme.of(
                                         context,
                                       ).textTheme.titleMedium,
@@ -140,13 +168,19 @@ class AdminTransactionsScreen extends ConsumerWidget {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                '${tx.machineName} • ${tx.customer.name}',
+                                '${tx.machineName} • ${tx.customerName}',
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(color: scheme.onSurfaceVariant),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '${tx.quantity}× ${tx.productName}',
                                 style: Theme.of(context).textTheme.bodySmall
                                     ?.copyWith(color: scheme.onSurfaceVariant),
                               ),
                               const SizedBox(height: 6),
                               MoneyText(
-                                tx.total,
+                                tx.grossAmount,
                                 style: Theme.of(context).textTheme.bodyMedium
                                     ?.copyWith(fontWeight: FontWeight.w800),
                               ),
@@ -163,6 +197,9 @@ class AdminTransactionsScreen extends ConsumerWidget {
                 );
               },
             ),
+          );
+        },
+      ),
     );
   }
 }

@@ -52,7 +52,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             email: result.user.email,
             phone: result.user.phone,
             token: result.token,
-            role: UserRole.customer,
+            role: result.user.role == 'admin'
+                ? UserRole.admin
+                : UserRole.customer,
           );
     } catch (e) {
       if (!mounted) return;

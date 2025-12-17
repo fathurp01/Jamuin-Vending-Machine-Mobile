@@ -159,6 +159,8 @@ abstract class PaymentsRepository {
   Future<PaymentStatusDetail> status(String orderId);
 
   Future<List<PaymentHistoryItem>> myHistory();
+
+  Future<void> cancel(String orderId);
 }
 
 final class ApiPaymentsRepository implements PaymentsRepository {
@@ -203,5 +205,10 @@ final class ApiPaymentsRepository implements PaymentsRepository {
         .whereType<Map>()
         .map((e) => PaymentHistoryItem.fromJson(e.cast<String, Object?>()))
         .toList(growable: false);
+  }
+
+  @override
+  Future<void> cancel(String orderId) async {
+    await _dio.post<void>('/payments/cancel/$orderId');
   }
 }
