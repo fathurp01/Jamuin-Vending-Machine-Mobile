@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../cart/application/cart_controller.dart';
-import '../../inventory/application/inventory_controller.dart';
-import '../../session/application/session_controller.dart';
 import '../data/product_repository.dart';
+import '../../../core/config/backend_config.dart';
 import '../../../shared/widgets/money_text.dart';
 import '../../../shared/widgets/quantity_stepper.dart';
 import '../../../shared/widgets/rounded_card.dart';
@@ -22,10 +21,16 @@ class ProductDetailScreen extends ConsumerStatefulWidget {
 class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   int _qty = 1;
 
+  String? _resolveImageUrl(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return null;
+    final v = raw.trim();
+    if (v.startsWith('http://') || v.startsWith('https://')) return v;
+    return '${BackendConfig.baseUrl}/$v';
+  }
+
   @override
   Widget build(BuildContext context) {
     final productAsync = ref.watch(productByIdProvider(widget.productId));
-    final session = ref.watch(sessionControllerProvider);
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
@@ -34,12 +39,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         data: (p) {
           if (p == null) return const Center(child: Text('Product not found'));
 
-          final machineId = session.selectedMachineId;
-          final stock = machineId == null
-              ? null
-              : ref.watch(stockForSelectedMachineProvider(p.id));
-          final isOutOfStock = stock != null && stock <= 0;
-          final maxQty = stock == null ? 99 : (stock <= 0 ? 1 : stock);
+          final stock = p.stock;
+          final isOutOfStock = stock <= 0;
+          final maxQty = stock <= 0 ? 1 : stock;
+          final imageUrl = _resolveImageUrl(p.image);
 
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
@@ -53,11 +56,26 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   alignment: Alignment.center,
-                  child: Icon(
-                    Icons.local_cafe_outlined,
-                    color: scheme.primary,
-                    size: 54,
-                  ),
+                  child: imageUrl == null
+                      ? Icon(
+                          Icons.local_drink_outlined,
+                          color: scheme.primary,
+                          size: 54,
+                        )
+                      : ClipRRect(
+                          borderRadius: BorderRadius.circular(20),
+                          child: Image.network(
+                            imageUrl,
+                            width: double.infinity,
+                            height: 180,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Icon(
+                              Icons.local_drink_outlined,
+                              color: scheme.primary,
+                              size: 54,
+                            ),
+                          ),
+                        ),
                 ),
               ),
               const SizedBox(height: 14),
@@ -68,12 +86,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                 ),
               ),
               const SizedBox(height: 6),
-              Text(
-                p.subtitle,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
-              ),
               const SizedBox(height: 12),
               MoneyText(
                 p.price,
@@ -87,37 +99,14 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Machine & stock',
+                      'Stock',
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.location_on_outlined,
-                          size: 18,
-                          color: scheme.onSurfaceVariant,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            session.selectedMachineName ??
-                                'Not selected (choose a machine first)',
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(color: scheme.onSurfaceVariant),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
                     Text(
-                      stock == null
-                          ? 'Stock: -'
-                          : (isOutOfStock ? 'Out of stock' : 'Stock: $stock'),
+                      isOutOfStock ? 'Out of stock' : 'Stock: $stock',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: stock == null
-                            ? scheme.onSurfaceVariant
-                            : (isOutOfStock ? scheme.error : scheme.primary),
+                        color: isOutOfStock ? scheme.error : scheme.primary,
                         fontWeight: isOutOfStock
                             ? FontWeight.w800
                             : FontWeight.w700,
@@ -125,12 +114,22 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                     ),
                     const Divider(height: 22),
                     Text(
-                      'About',
+                      'Description',
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(height: 8),
                     Text(
                       p.description,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Benefits',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      p.benefits,
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                     const SizedBox(height: 12),
@@ -164,15 +163,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
           data: (p) {
             if (p == null) return const SizedBox.shrink();
 
-            final machineId = session.selectedMachineId;
-            final stock = machineId == null
-                ? null
-                : ref.watch(stockForSelectedMachineProvider(p.id));
-            final isOutOfStock = stock != null && stock <= 0;
-            final addDisabled = machineId == null || isOutOfStock;
+            final isOutOfStock = p.stock <= 0;
 
             return FilledButton(
-              onPressed: addDisabled
+              onPressed: isOutOfStock
                   ? null
                   : () {
                       ref

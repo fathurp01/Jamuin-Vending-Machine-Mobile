@@ -1,63 +1,48 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dio/dio.dart';
 
 import '../domain/product.dart';
+import '../../../core/networking/dio_provider.dart';
 
 abstract class ProductRepository {
   Future<List<Product>> list();
   Future<Product?> getById(String id);
 }
 
-class MockProductRepository implements ProductRepository {
-  static const _items = <Product>[
-    Product(
-      id: 'latte',
-      name: 'Latte',
-      subtitle: 'Smooth & creamy',
-      price: 28000,
-      description:
-          'A balanced espresso with steamed milk. Great any time of day.',
-      tags: ['Bestseller'],
-    ),
-    Product(
-      id: 'americano',
-      name: 'Americano',
-      subtitle: 'Bold & clean',
-      price: 24000,
-      description: 'Espresso diluted with hot water for a clean, bold profile.',
-      tags: ['Low Sugar'],
-    ),
-    Product(
-      id: 'matcha',
-      name: 'Matcha Latte',
-      subtitle: 'Earthy & mellow',
-      price: 32000,
-      description: 'Creamy matcha with a soft finish. Comfort in a cup.',
-      tags: ['New'],
-    ),
-    Product(
-      id: 'choco',
-      name: 'Chocolate',
-      subtitle: 'Rich & cozy',
-      price: 30000,
-      description: 'A rich chocolate drink with a smooth texture.',
-    ),
-  ];
+final class ApiProductRepository implements ProductRepository {
+  ApiProductRepository(this._dio);
 
-  @override
-  Future<Product?> getById(String id) async {
-    await Future<void>.delayed(const Duration(milliseconds: 150));
-    return _items.where((p) => p.id == id).cast<Product?>().firstOrNull;
-  }
+  final Dio _dio;
 
   @override
   Future<List<Product>> list() async {
-    await Future<void>.delayed(const Duration(milliseconds: 200));
-    return _items;
+    final res = await _dio.get<List<dynamic>>('/products');
+    final data = res.data ?? const [];
+    return data
+        .whereType<Map>()
+        .map((e) => Product.fromJson(e.cast<String, Object?>()))
+        .toList(growable: false);
+  }
+
+  @override
+  Future<Product?> getById(String id) async {
+    final numeric = int.tryParse(id);
+    if (numeric == null) return null;
+
+    try {
+      final res = await _dio.get<Map<String, Object?>>('/products/$numeric');
+      final data = res.data;
+      if (data == null) return null;
+      return Product.fromJson(data);
+    } on DioException {
+      return null;
+    }
   }
 }
 
 final productRepositoryProvider = Provider<ProductRepository>((ref) {
-  return MockProductRepository();
+  final dio = ref.watch(dioProvider);
+  return ApiProductRepository(dio);
 });
 
 final productListProvider = FutureProvider<List<Product>>((ref) async {
@@ -72,7 +57,3 @@ final productByIdProvider = FutureProvider.family<Product?, String>((
   final repo = ref.read(productRepositoryProvider);
   return repo.getById(id);
 });
-
-extension<T> on Iterable<T> {
-  T? get firstOrNull => isEmpty ? null : first;
-}

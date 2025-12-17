@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../application/user_providers.dart';
-import '../domain/user_account.dart';
+import '../application/auth_providers.dart';
 import '../../session/application/session_controller.dart';
+import '../../session/application/session_persistence_providers.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -17,6 +17,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
 
   final _nameCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
   final _confirmCtrl = TextEditingController();
@@ -26,6 +27,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   @override
   void dispose() {
     _nameCtrl.dispose();
+    _phoneCtrl.dispose();
     _emailCtrl.dispose();
     _passCtrl.dispose();
     _confirmCtrl.dispose();
@@ -34,27 +36,47 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   Future<void> _submit() async {
     final messenger = ScaffoldMessenger.of(context);
+    final router = GoRouter.of(context);
 
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _submitting = true);
-    await Future<void>.delayed(const Duration(milliseconds: 450));
 
-    final account = UserAccount(
-      email: _emailCtrl.text.trim(),
-      displayName: _nameCtrl.text.trim(),
-      password: _passCtrl.text,
-      role: UserRole.customer,
-    );
-    await ref.read(userRepositoryProvider).upsert(account);
+    try {
+      final auth = ref.read(authRepositoryProvider);
+      final result = await auth.register(
+        name: _nameCtrl.text.trim(),
+        email: _emailCtrl.text.trim(),
+        phone: _phoneCtrl.text.trim(),
+        password: _passCtrl.text,
+      );
+
+      if (!mounted) return;
+      ref
+          .read(sessionControllerProvider.notifier)
+          .applyLogin(
+            userId: result.user.id,
+            displayName: result.user.name,
+            email: result.user.email,
+            phone: result.user.phone,
+            token: result.token,
+            role: UserRole.customer,
+          );
+
+      await ref
+          .read(sessionRepositoryProvider)
+          .write(ref.read(sessionControllerProvider));
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _submitting = false);
+      messenger.showSnackBar(SnackBar(content: Text('Register failed: $e')));
+      return;
+    }
 
     if (!mounted) return;
     setState(() => _submitting = false);
-
-    messenger.showSnackBar(
-      const SnackBar(content: Text('Account created (demo). Please login.')),
-    );
-    context.pop();
+    messenger.showSnackBar(const SnackBar(content: Text('Account created.')));
+    router.go('/app/home');
   }
 
   @override
@@ -75,6 +97,22 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   validator: (v) {
                     final t = (v ?? '').trim();
                     if (t.isEmpty) return 'Name is required';
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _phoneCtrl,
+                  keyboardType: TextInputType.phone,
+                  textInputAction: TextInputAction.next,
+                  decoration: const InputDecoration(labelText: 'Phone'),
+                  validator: (v) {
+                    final value = (v ?? '').trim();
+                    if (value.isEmpty) return 'Phone is required';
+                    final digitsOnly = RegExp(r'^\+?[0-9]{8,15}$');
+                    if (!digitsOnly.hasMatch(value)) {
+                      return 'Enter a valid phone number';
+                    }
                     return null;
                   },
                 ),

@@ -51,11 +51,21 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       return;
     }
 
+    if (restored.userId == null || (restored.token ?? '').trim().isEmpty) {
+      await repo.clear();
+      if (!mounted) return;
+      context.go('/auth/login');
+      return;
+    }
+
     ref
         .read(sessionControllerProvider.notifier)
         .applyLogin(
+          userId: restored.userId!,
           displayName: restored.displayName ?? 'User',
           email: restored.email ?? 'user@example.com',
+          phone: restored.phone ?? '',
+          token: restored.token!,
           role: restored.role,
         );
     if (restored.selectedMachineId != null &&

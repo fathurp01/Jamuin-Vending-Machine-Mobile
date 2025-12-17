@@ -24,10 +24,16 @@ final class LocalSessionRepository implements SessionRepository {
     final isAuth = (m['isAuthenticated'] as bool?) ?? false;
     if (!isAuth) return null;
 
+    final token = (m['token'] as String?)?.trim();
+    if (token == null || token.isEmpty) return null;
+
     return SessionState(
       isAuthenticated: true,
       displayName: m['displayName'] as String?,
       email: m['email'] as String?,
+      phone: m['phone'] as String?,
+      userId: m['userId'] as int?,
+      token: token,
       role: role,
       points: (m['points'] as int?) ?? 120,
       selectedMachineId: m['selectedMachineId'] as String?,
@@ -41,6 +47,9 @@ final class LocalSessionRepository implements SessionRepository {
       'isAuthenticated': state.isAuthenticated,
       'displayName': state.displayName,
       'email': state.email,
+      'phone': state.phone,
+      'userId': state.userId,
+      'token': state.token,
       'role': state.role == UserRole.admin ? 'admin' : 'customer',
       'points': state.points,
       'selectedMachineId': state.selectedMachineId,

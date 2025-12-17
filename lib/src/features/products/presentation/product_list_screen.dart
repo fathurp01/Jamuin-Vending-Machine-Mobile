@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../inventory/application/inventory_controller.dart';
-import '../../session/application/session_controller.dart';
 import '../data/product_repository.dart';
 import '../../../shared/widgets/money_text.dart';
 import '../../../shared/widgets/rounded_card.dart';
@@ -14,7 +12,6 @@ class ProductListScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final products = ref.watch(productListProvider);
-    final session = ref.watch(sessionControllerProvider);
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
@@ -22,60 +19,11 @@ class ProductListScreen extends ConsumerWidget {
       body: products.when(
         data: (items) => ListView.separated(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-          itemCount: items.length + 1,
+          itemCount: items.length,
           separatorBuilder: (_, __) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
-            if (index == 0) {
-              return RoundedCard(
-                child: Row(
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: scheme.secondary.withValues(alpha: 0.16),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Icon(
-                        Icons.location_on_outlined,
-                        color: scheme.secondary,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Selected machine',
-                            style: Theme.of(context).textTheme.titleSmall
-                                ?.copyWith(fontWeight: FontWeight.w800),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            session.selectedMachineName ??
-                                'Not selected (stock info hidden)',
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(color: scheme.onSurfaceVariant),
-                          ),
-                        ],
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: () => context.go('/app/map'),
-                      child: const Text('Change'),
-                    ),
-                  ],
-                ),
-              );
-            }
-
-            final p = items[index - 1];
-            final machineId = session.selectedMachineId;
-            final stock = machineId == null
-                ? null
-                : ref.watch(stockForSelectedMachineProvider(p.id));
-            final isOutOfStock = (stock ?? 1) <= 0;
+            final p = items[index];
+            final isOutOfStock = p.stock <= 0;
 
             return InkWell(
               borderRadius: BorderRadius.circular(20),
@@ -106,7 +54,7 @@ class ProductListScreen extends ConsumerWidget {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            p.subtitle,
+                            p.benefits,
                             style: Theme.of(context).textTheme.bodySmall
                                 ?.copyWith(color: scheme.onSurfaceVariant),
                           ),
@@ -120,18 +68,14 @@ class ProductListScreen extends ConsumerWidget {
                               ),
                               const Spacer(),
                               Text(
-                                stock == null
-                                    ? 'Stock: -'
-                                    : (isOutOfStock
-                                          ? 'Out of stock'
-                                          : 'Stock: $stock'),
+                                isOutOfStock
+                                    ? 'Out of stock'
+                                    : 'Stock: ${p.stock}',
                                 style: Theme.of(context).textTheme.bodySmall
                                     ?.copyWith(
-                                      color: stock == null
-                                          ? scheme.onSurfaceVariant
-                                          : (isOutOfStock
-                                                ? scheme.error
-                                                : scheme.onSurfaceVariant),
+                                      color: isOutOfStock
+                                          ? scheme.error
+                                          : scheme.onSurfaceVariant,
                                       fontWeight: isOutOfStock
                                           ? FontWeight.w800
                                           : FontWeight.w600,

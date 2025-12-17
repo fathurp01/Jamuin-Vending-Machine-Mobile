@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../application/transaction_history_controller.dart';
-import '../domain/transaction_record.dart';
+import '../application/payments_providers.dart';
 import '../../../shared/widgets/money_text.dart';
 import '../../../shared/widgets/rounded_card.dart';
 
@@ -12,13 +11,25 @@ class TransactionHistoryScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final items = ref.watch(transactionHistoryControllerProvider);
     final scheme = Theme.of(context).colorScheme;
+    final historyAsync = ref.watch(paymentHistoryProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('History')),
-      body: items.isEmpty
-          ? Center(
+      body: historyAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              'Failed to load history.\n$e',
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+        data: (items) {
+          if (items.isEmpty) {
+            return Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -41,35 +52,38 @@ class TransactionHistoryScreen extends ConsumerWidget {
                   ),
                 ],
               ),
-            )
-          : ListView.separated(
+            );
+          }
+
+          return RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(paymentHistoryProvider);
+              await ref.read(paymentHistoryProvider.future);
+            },
+            child: ListView.separated(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
               itemCount: items.length,
               separatorBuilder: (_, __) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
                 final tx = items[index];
+                final normalized = tx.status.trim().toLowerCase();
 
-                final (title, color, icon) = switch (tx.status) {
-                  TransactionStatus.pending => (
-                    'Pending',
-                    scheme.secondary,
-                    Icons.schedule_outlined,
-                  ),
-                  TransactionStatus.paid => (
+                final (title, color, icon) = switch (normalized) {
+                  'paid' || 'settlement' => (
                     'Paid',
                     scheme.primary,
                     Icons.check_circle_outline,
                   ),
-                  TransactionStatus.failed => (
-                    'Failed',
-                    scheme.error,
-                    Icons.error_outline,
-                  ),
+                  'failed' ||
+                  'expire' ||
+                  'cancel' ||
+                  'deny' => ('Failed', scheme.error, Icons.error_outline),
+                  _ => ('Pending', scheme.secondary, Icons.schedule_outlined),
                 };
 
                 return InkWell(
                   borderRadius: BorderRadius.circular(20),
-                  onTap: () => context.push('/app/tx/${tx.id}'),
+                  onTap: () => context.push('/app/tx/${tx.orderId}'),
                   child: RoundedCard(
                     child: Row(
                       children: [
@@ -91,7 +105,7 @@ class TransactionHistoryScreen extends ConsumerWidget {
                                 children: [
                                   Expanded(
                                     child: Text(
-                                      tx.id,
+                                      tx.orderId,
                                       style: Theme.of(
                                         context,
                                       ).textTheme.titleMedium,
@@ -109,13 +123,13 @@ class TransactionHistoryScreen extends ConsumerWidget {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                tx.machineName,
+                                tx.product.name,
                                 style: Theme.of(context).textTheme.bodySmall
                                     ?.copyWith(color: scheme.onSurfaceVariant),
                               ),
                               const SizedBox(height: 6),
                               MoneyText(
-                                tx.total,
+                                tx.grossAmount,
                                 style: Theme.of(context).textTheme.bodyMedium
                                     ?.copyWith(fontWeight: FontWeight.w800),
                               ),
@@ -132,6 +146,9 @@ class TransactionHistoryScreen extends ConsumerWidget {
                 );
               },
             ),
+          );
+        },
+      ),
     );
   }
 }

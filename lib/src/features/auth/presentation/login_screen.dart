@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../application/user_providers.dart';
+import '../application/auth_providers.dart';
 import '../../session/application/session_controller.dart';
 import '../../session/application/session_persistence_providers.dart';
 
@@ -39,36 +39,27 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final email = _emailCtrl.text.trim();
     final password = _passCtrl.text;
 
-    final users = ref.read(userRepositoryProvider);
-    await users.ensureSeededUsers();
+    try {
+      final auth = ref.read(authRepositoryProvider);
+      final result = await auth.login(email: email, password: password);
 
-    final account = await users.findByEmail(email);
-    if (!mounted) return;
-
-    if (account == null) {
+      if (!mounted) return;
+      ref
+          .read(sessionControllerProvider.notifier)
+          .applyLogin(
+            userId: result.user.id,
+            displayName: result.user.name,
+            email: result.user.email,
+            phone: result.user.phone,
+            token: result.token,
+            role: UserRole.customer,
+          );
+    } catch (e) {
+      if (!mounted) return;
       setState(() => _submitting = false);
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Account not found. Please register.')),
-      );
+      messenger.showSnackBar(SnackBar(content: Text('Login failed: $e')));
       return;
     }
-
-    // Demo-only password check.
-    if (account.password != password) {
-      setState(() => _submitting = false);
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Invalid email or password.')),
-      );
-      return;
-    }
-
-    ref
-        .read(sessionControllerProvider.notifier)
-        .applyLogin(
-          displayName: account.displayName,
-          email: account.email,
-          role: account.role,
-        );
 
     final sessionRepo = ref.read(sessionRepositoryProvider);
     await sessionRepo.write(ref.read(sessionControllerProvider));
@@ -77,7 +68,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     setState(() => _submitting = false);
 
     messenger.showSnackBar(const SnackBar(content: Text('Logged in')));
-    router.go(account.role == UserRole.admin ? '/app/admin' : '/app/home');
+    router.go('/app/home');
   }
 
   @override

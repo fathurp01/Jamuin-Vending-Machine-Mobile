@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../cart/application/cart_controller.dart';
-import '../../inventory/application/inventory_controller.dart';
 import '../../session/application/session_controller.dart';
 import '../application/checkout_controller.dart';
 import '../../transactions/domain/transaction_record.dart';
@@ -20,6 +19,7 @@ class CheckoutScreen extends ConsumerStatefulWidget {
 class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
 
@@ -30,11 +30,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     super.initState();
     final session = ref.read(sessionControllerProvider);
     _nameCtrl.text = (session.displayName ?? '').trim();
+    _emailCtrl.text = (session.email ?? '').trim();
+    _phoneCtrl.text = (session.phone ?? '').trim();
   }
 
   @override
   void dispose() {
     _nameCtrl.dispose();
+    _emailCtrl.dispose();
     _phoneCtrl.dispose();
     _notesCtrl.dispose();
     super.dispose();
@@ -44,19 +47,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   Widget build(BuildContext context) {
     final cart = ref.watch(cartControllerProvider);
     final session = ref.watch(sessionControllerProvider);
-    final inventory = ref.watch(inventoryControllerProvider);
     final scheme = Theme.of(context).colorScheme;
 
     final machineId = session.selectedMachineId;
     final hasSelectedMachine = machineId != null;
-    final stockOk = hasSelectedMachine
-        ? cart.items.values.every((it) {
-            final stock = inventory.stockFor(
-              machineId: machineId,
-              productId: it.product.id,
-            );
-            return it.quantity <= stock;
-          })
+    final hasSingleItem = cart.items.length == 1;
+    final stockOk = hasSingleItem
+        ? cart.items.values.single.quantity <=
+              cart.items.values.single.product.stock
         : false;
 
     return Scaffold(
@@ -132,6 +130,25 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
+                    controller: _emailCtrl,
+                    keyboardType: TextInputType.emailAddress,
+                    textInputAction: TextInputAction.next,
+                    decoration: const InputDecoration(
+                      labelText: 'Email',
+                      prefixIcon: Icon(Icons.email_outlined),
+                    ),
+                    validator: (v) {
+                      final value = (v ?? '').trim();
+                      if (value.isEmpty) return 'Email is required';
+                      final emailOk = RegExp(
+                        r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
+                      ).hasMatch(value);
+                      if (!emailOk) return 'Enter a valid email';
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
                     controller: _phoneCtrl,
                     keyboardType: TextInputType.phone,
                     textInputAction: TextInputAction.next,
@@ -163,7 +180,30 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            if (hasSelectedMachine && !stockOk)
+            if (!hasSingleItem)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: RoundedCard(
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline, color: scheme.primary),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Checkout currently supports 1 product per transaction. Please adjust your cart.',
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: scheme.onSurfaceVariant),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => context.go('/app/cart'),
+                        child: const Text('Cart'),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else if (hasSelectedMachine && !stockOk)
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: RoundedCard(
@@ -173,7 +213,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          'Some items exceed available stock for this machine.\nPlease adjust quantities in your cart.',
+                          'Quantity exceeds available product stock.\nPlease adjust quantities in your cart.',
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(color: scheme.onSurfaceVariant),
                         ),
@@ -261,7 +301,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Card / QR (placeholder)',
+                          'Midtrans Snap (WebView)',
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(color: scheme.onSurfaceVariant),
                         ),
@@ -273,7 +313,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Tip: For demo, order status updates automatically after checkout.',
+              'After completing payment, tap “Check status”.',
               style: Theme.of(
                 context,
               ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
@@ -284,7 +324,8 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       bottomNavigationBar: SafeArea(
         minimum: const EdgeInsets.fromLTRB(16, 10, 16, 16),
         child: FilledButton(
-          onPressed: (_placing || !stockOk)
+          onPressed:
+              (_placing || !hasSelectedMachine || !hasSingleItem || !stockOk)
               ? null
               : () async {
                   final messenger = ScaffoldMessenger.of(context);
@@ -316,8 +357,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   if (!mounted) return;
                   setState(() => _placing = false);
 
-                  final id = result.id;
-                  if (id == null) {
+                  final orderId = result.orderId;
+                  final snapUrl = result.snapUrl;
+                  if (orderId == null || snapUrl == null) {
                     if (!mounted) return;
                     messenger.showSnackBar(
                       SnackBar(
@@ -328,7 +370,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   }
 
                   if (!mounted) return;
-                  router.go('/app/tx/$id');
+                  router.go('/app/payment/$orderId', extra: snapUrl);
                 },
           child: _placing
               ? const SizedBox(

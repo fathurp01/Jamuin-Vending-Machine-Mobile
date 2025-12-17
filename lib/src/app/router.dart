@@ -10,9 +10,12 @@ import '../features/admin/presentation/admin_stock_screen.dart';
 import '../features/admin/presentation/admin_transactions_screen.dart';
 import '../features/cart/presentation/cart_screen.dart';
 import '../features/checkout/presentation/checkout_screen.dart';
+import '../features/checkout/presentation/payment_webview_screen.dart';
 import '../features/checkout/presentation/transaction_status_screen.dart';
+import '../features/expert_system/presentation/expert_system_screen.dart';
 import '../features/home/presentation/home_screen.dart';
 import '../features/map/presentation/map_screen.dart';
+import '../features/profile/presentation/profile_screen.dart';
 import '../features/products/presentation/product_detail_screen.dart';
 import '../features/products/presentation/product_list_screen.dart';
 import '../features/transactions/presentation/transaction_history_screen.dart';
@@ -65,6 +68,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
+      GoRoute(path: '/', redirect: (context, state) => '/splash'),
       GoRoute(
         path: '/splash',
         builder: (context, state) => const SplashScreen(),
@@ -93,37 +97,45 @@ final routerProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/app/map',
-                builder: (context, state) => const MapScreen(),
+                path: '/app/products',
+                builder: (context, state) => const ProductListScreen(),
               ),
             ],
           ),
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/app/cart',
-                builder: (context, state) => const CartScreen(),
+                path: '/app/expert',
+                builder: (context, state) => const ExpertSystemScreen(),
               ),
             ],
           ),
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/app/admin',
-                builder: (context, state) => const AdminDashboardScreen(),
-                routes: [
-                  GoRoute(
-                    path: 'stock',
-                    builder: (context, state) => const AdminStockScreen(),
-                  ),
-                  GoRoute(
-                    path: 'transactions',
-                    builder: (context, state) =>
-                        const AdminTransactionsScreen(),
-                  ),
-                ],
+                path: '/app/profile',
+                builder: (context, state) => const ProfileScreen(),
               ),
             ],
+          ),
+        ],
+      ),
+      GoRoute(path: '/app/map', builder: (context, state) => const MapScreen()),
+      GoRoute(
+        path: '/app/cart',
+        builder: (context, state) => const CartScreen(),
+      ),
+      GoRoute(
+        path: '/app/admin',
+        builder: (context, state) => const AdminDashboardScreen(),
+        routes: [
+          GoRoute(
+            path: 'stock',
+            builder: (context, state) => const AdminStockScreen(),
+          ),
+          GoRoute(
+            path: 'transactions',
+            builder: (context, state) => const AdminTransactionsScreen(),
           ),
         ],
       ),
@@ -136,10 +148,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const TransactionHistoryScreen(),
       ),
       GoRoute(
-        path: '/app/products',
-        builder: (context, state) => const ProductListScreen(),
-      ),
-      GoRoute(
         path: '/app/products/:id',
         builder: (context, state) {
           final id = state.pathParameters['id']!;
@@ -149,6 +157,20 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/app/checkout',
         builder: (context, state) => const CheckoutScreen(),
+      ),
+      GoRoute(
+        path: '/app/payment/:orderId',
+        builder: (context, state) {
+          final orderId = state.pathParameters['orderId']!;
+          final snapUrl = state.extra;
+          if (snapUrl is! String || snapUrl.trim().isEmpty) {
+            return Scaffold(
+              appBar: AppBar(title: const Text('Payment')),
+              body: const Center(child: Text('Missing payment URL.')),
+            );
+          }
+          return PaymentWebViewScreen(orderId: orderId, snapUrl: snapUrl);
+        },
       ),
       GoRoute(
         path: '/app/tx/:id',
@@ -168,40 +190,32 @@ class AppShell extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final session = ref.watch(sessionControllerProvider);
-    final isAdmin = session.role == UserRole.admin;
-
     final destinations = <NavigationDestination>[
       const NavigationDestination(
         icon: Icon(Icons.home_outlined),
         label: 'Home',
       ),
-      const NavigationDestination(icon: Icon(Icons.map_outlined), label: 'Map'),
       const NavigationDestination(
-        icon: Icon(Icons.shopping_bag_outlined),
-        label: 'Cart',
+        icon: Icon(Icons.local_drink_outlined),
+        label: 'Products',
       ),
-      if (isAdmin)
-        const NavigationDestination(
-          icon: Icon(Icons.admin_panel_settings_outlined),
-          label: 'Admin',
-        ),
+      const NavigationDestination(
+        icon: Icon(Icons.psychology_outlined),
+        label: 'AI',
+      ),
+      const NavigationDestination(
+        icon: Icon(Icons.person_outline),
+        label: 'Profile',
+      ),
     ];
-
-    final currentIndex = () {
-      final idx = navigationShell.currentIndex;
-      if (!isAdmin && idx >= 3) return 0;
-      return idx;
-    }();
 
     return Scaffold(
       body: navigationShell,
       bottomNavigationBar: NavigationBar(
-        selectedIndex: currentIndex,
+        selectedIndex: navigationShell.currentIndex,
         destinations: destinations,
         onDestinationSelected: (index) {
-          final targetIndex = (!isAdmin && index >= 3) ? 0 : index;
-          navigationShell.goBranch(targetIndex);
+          navigationShell.goBranch(index);
         },
       ),
     );
