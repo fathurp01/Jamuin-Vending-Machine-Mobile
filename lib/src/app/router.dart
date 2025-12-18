@@ -121,7 +121,13 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
         ],
       ),
-      GoRoute(path: '/app/map', builder: (context, state) => const MapScreen()),
+      GoRoute(
+        path: '/app/map',
+        builder: (context, state) {
+          final navigateTo = state.uri.queryParameters['navigateTo'];
+          return MapScreen(navigateTo: navigateTo);
+        },
+      ),
       GoRoute(
         path: '/app/cart',
         builder: (context, state) => const CartScreen(),

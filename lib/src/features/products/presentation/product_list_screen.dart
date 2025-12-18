@@ -34,7 +34,12 @@ class ProductListScreen extends ConsumerWidget {
       ),
       body: products.when(
         data: (items) => ListView.separated(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          padding: EdgeInsets.fromLTRB(
+            16,
+            8,
+            16,
+            cart.items.isEmpty ? 24 : 100,
+          ),
           itemCount: items.length,
           separatorBuilder: (_, __) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
@@ -112,6 +117,26 @@ class ProductListScreen extends ConsumerWidget {
         error: (e, _) => Center(child: Text('Gagal memuat: $e')),
         loading: () => const Center(child: CircularProgressIndicator()),
       ),
+      bottomNavigationBar: cart.items.isEmpty
+          ? null
+          : SafeArea(
+              minimum: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+              child: FilledButton(
+                onPressed: () => context.go('/app/cart'),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Badge(
+                      isLabelVisible: cart.itemCount > 0,
+                      label: Text('${cart.itemCount}'),
+                      child: const Icon(Icons.shopping_bag_outlined),
+                    ),
+                    const SizedBox(width: 12),
+                    const Text('Bayar Sekarang'),
+                  ],
+                ),
+              ),
+            ),
     );
   }
 }

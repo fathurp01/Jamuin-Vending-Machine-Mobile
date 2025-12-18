@@ -107,7 +107,7 @@ class HomeScreen extends ConsumerWidget {
                     icon: Icons.map_outlined,
                     title: 'Cari Mesin',
                     subtitle: session.selectedMachineName ?? 'Pilih terdekat',
-                    onTap: () => context.go('/app/map'),
+                    onTap: () => context.push('/app/map?navigateTo=products'),
                   ),
                 ),
                 const SizedBox(width: 12),

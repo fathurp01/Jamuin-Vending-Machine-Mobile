@@ -70,7 +70,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     setState(() => _submitting = false);
 
     messenger.showSnackBar(const SnackBar(content: Text('Berhasil masuk')));
-    router.go('/app/home');
+
+    // Navigate based on user role
+    final currentSession = ref.read(sessionControllerProvider);
+    final destination = currentSession.role == UserRole.admin
+        ? '/app/admin'
+        : '/app/home';
+    router.go(destination);
   }
 
   @override
