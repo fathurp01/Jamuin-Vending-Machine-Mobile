@@ -226,6 +226,12 @@ class AdminDashboardScreen extends ConsumerWidget {
                 ),
                 Column(
                   children: [
+                    FilledButton.icon(
+                      onPressed: () => context.go('/app/admin/monitor'),
+                      icon: const Icon(Icons.monitor_heart_outlined, size: 18),
+                      label: const Text('Monitor Machines'),
+                    ),
+                    const SizedBox(height: 8),
                     OutlinedButton(
                       onPressed: () => context.go('/app/admin/stock'),
                       child: const Text('Manage stock'),
