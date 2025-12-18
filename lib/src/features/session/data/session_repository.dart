@@ -21,6 +21,12 @@ final class LocalSessionRepository implements SessionRepository {
     final roleRaw = (m['role'] as String?) ?? 'customer';
     final role = roleRaw == 'admin' ? UserRole.admin : UserRole.customer;
 
+    // Admin must not be persisted between full app launches.
+    if (role == UserRole.admin) {
+      await clear();
+      return null;
+    }
+
     final isAuth = (m['isAuthenticated'] as bool?) ?? false;
     if (!isAuth) return null;
 
@@ -43,6 +49,12 @@ final class LocalSessionRepository implements SessionRepository {
 
   @override
   Future<void> write(SessionState state) async {
+    // Persist only for customer. Admin should be in-memory only so that when
+    // the app is truly closed (killed), admin is auto-logged out.
+    if (state.role == UserRole.admin) {
+      await clear();
+      return;
+    }
     await _storage.setJson(_key, {
       'isAuthenticated': state.isAuthenticated,
       'displayName': state.displayName,

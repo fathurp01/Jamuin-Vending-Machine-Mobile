@@ -242,7 +242,15 @@ class CartScreen extends ConsumerWidget {
               child: FilledButton(
                 onPressed: hasStockIssues
                     ? null
-                    : () => context.push('/app/checkout'),
+                    : () {
+                        if (!session.isAuthenticated) {
+                          context.push(
+                            '/auth/login?redirect=${Uri.encodeComponent('/app/cart')}',
+                          );
+                          return;
+                        }
+                        context.push('/app/checkout');
+                      },
                 child: const Text('Checkout'),
               ),
             ),

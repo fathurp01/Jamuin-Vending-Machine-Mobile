@@ -7,7 +7,11 @@ import '../../session/application/session_controller.dart';
 import '../../session/application/session_persistence_providers.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({super.key, this.redirectTo});
+
+  /// Optional in-app redirect after successful customer login.
+  /// Example: '/app/cart'
+  final String? redirectTo;
 
   @override
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
@@ -71,11 +75,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     messenger.showSnackBar(const SnackBar(content: Text('Berhasil masuk')));
 
-    // Navigate based on user role
+    // Navigate based on user role.
+    // - Admin always goes to admin dashboard
+    // - Customer optionally returns to provided redirect (e.g., cart)
     final currentSession = ref.read(sessionControllerProvider);
     final destination = currentSession.role == UserRole.admin
         ? '/app/admin'
-        : '/app/home';
+        : (widget.redirectTo?.trim().isNotEmpty == true
+              ? widget.redirectTo!
+              : '/app/home');
     router.go(destination);
   }
 
@@ -152,6 +160,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           TextButton(
             onPressed: () => context.push('/auth/register'),
             child: const Text('Buat akun'),
+          ),
+          TextButton(
+            onPressed: () => context.go('/app/home'),
+            child: const Text('Kembali ke Dashboard'),
           ),
         ],
       ),

@@ -38,14 +38,39 @@ class HomeScreen extends ConsumerWidget {
             ),
           ),
           IconButton(
-            tooltip: 'Keluar',
+            tooltip: session.isAuthenticated ? 'Logout' : 'Login',
             onPressed: () async {
-              final repo = ref.read(sessionRepositoryProvider);
-              await repo.clear();
-              ref.read(sessionControllerProvider.notifier).logout();
-              if (context.mounted) context.go('/auth/login');
+              if (!session.isAuthenticated) {
+                context.push('/auth/login');
+                return;
+              }
+
+              final ok = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Logout'),
+                  content: const Text('Apakah Anda yakin ingin logout?'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(ctx).pop(false),
+                      child: const Text('Batal'),
+                    ),
+                    FilledButton(
+                      onPressed: () => Navigator.of(ctx).pop(true),
+                      child: const Text('Logout'),
+                    ),
+                  ],
+                ),
+              );
+
+              if (ok == true && context.mounted) {
+                final repo = ref.read(sessionRepositoryProvider);
+                await repo.clear();
+                ref.read(sessionControllerProvider.notifier).logout();
+                if (context.mounted) context.go('/auth/login');
+              }
             },
-            icon: const Icon(Icons.logout),
+            icon: Icon(session.isAuthenticated ? Icons.logout : Icons.login),
           ),
           const SizedBox(width: 8),
         ],

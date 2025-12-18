@@ -47,14 +47,14 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     if (!mounted) return;
 
     if (restored == null) {
-      context.go('/auth/login');
+      context.go('/app/home');
       return;
     }
 
     if (restored.userId == null || (restored.token ?? '').trim().isEmpty) {
       await repo.clear();
       if (!mounted) return;
-      context.go('/auth/login');
+      context.go('/app/home');
       return;
     }
 

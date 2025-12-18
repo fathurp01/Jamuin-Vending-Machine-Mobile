@@ -44,6 +44,9 @@ class _RouterNotifier extends ChangeNotifier {
 final routerProvider = Provider<GoRouter>((ref) {
   final notifier = _RouterNotifier(ref);
 
+  final loginRedirectToCart =
+      '/auth/login?redirect=${Uri.encodeComponent('/app/cart')}';
+
   return GoRouter(
     initialLocation: '/splash',
     refreshListenable: notifier,
@@ -53,18 +56,25 @@ final routerProvider = Provider<GoRouter>((ref) {
       final loc = state.matchedLocation;
 
       final isAuthRoute = loc.startsWith('/auth');
-      final isAppRoute = loc.startsWith('/app');
 
-      if (!isAuth && isAppRoute) {
-        return '/auth/login';
+      // Guest can access almost all app routes.
+      // Only checkout/payment flow requires authentication.
+      final requiresAuth =
+          loc == '/app/checkout' ||
+          loc.startsWith('/app/payment') ||
+          loc.startsWith('/app/tx');
+
+      if (!isAuth && requiresAuth) {
+        return loginRedirectToCart;
+      }
+
+      // Admin area always requires admin login.
+      if (loc.startsWith('/app/admin') && (!isAuth || !isAdmin)) {
+        return isAuth ? '/app/home' : '/auth/login';
       }
 
       if (isAuth && isAuthRoute) {
         return isAdmin ? '/app/admin' : '/app/home';
-      }
-
-      if (loc.startsWith('/app/admin') && !isAdmin) {
-        return '/app/home';
       }
 
       return null;
@@ -77,7 +87,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/auth/login',
-        builder: (context, state) => const LoginScreen(),
+        builder: (context, state) {
+          final redirectTo = state.uri.queryParameters['redirect'];
+          return LoginScreen(redirectTo: redirectTo);
+        },
       ),
       GoRoute(
         path: '/auth/register',

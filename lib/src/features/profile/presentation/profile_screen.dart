@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../session/application/session_controller.dart';
+import '../../session/application/session_persistence_providers.dart';
 import '../../../shared/widgets/rounded_card.dart';
 
 class ProfileScreen extends ConsumerWidget {
@@ -12,6 +13,48 @@ class ProfileScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
     final session = ref.watch(sessionControllerProvider);
+
+    if (!session.isAuthenticated) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Profil')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.person_outline,
+                  size: 48,
+                  color: scheme.onSurfaceVariant,
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Login untuk Melihat Profil',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Silakan login untuk melihat profil dan informasi akun.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 14),
+                FilledButton(
+                  onPressed: () => context.push('/auth/login'),
+                  child: const Text('Login'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(title: const Text('Profil')),
@@ -110,6 +153,8 @@ class ProfileScreen extends ConsumerWidget {
                   );
 
                   if (ok == true && context.mounted) {
+                    final repo = ref.read(sessionRepositoryProvider);
+                    await repo.clear();
                     ref.read(sessionControllerProvider.notifier).logout();
                     if (context.mounted) {
                       context.go('/auth/login');
