@@ -5,6 +5,7 @@
     <application
         android:label="jamuin"
         android:name="${applicationName}"
+        android:usesCleartextTraffic="true"
         android:icon="@mipmap/ic_launcher">
 
         <!-- Google Maps SDK API key (required by google_maps_flutter on Android) -->

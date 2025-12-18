@@ -80,8 +80,10 @@ class ExpertSystemController extends Notifier<ExpertSystemUiState> {
         question: q,
         answered: answered,
       );
-    } catch (e) {
-      state = ExpertError('Failed to start consultation.');
+    } catch (e, stack) {
+      print('❌ Expert System start error: $e');
+      print('   Stack: $stack');
+      state = ExpertError('Failed to start consultation: ${e.toString()}');
     }
   }
 
@@ -132,8 +134,19 @@ class ExpertSystemController extends Notifier<ExpertSystemUiState> {
         question: next,
         answered: answered,
       );
-    } catch (e) {
-      state = const ExpertError('Failed to submit answer.');
+    } catch (e, stack) {
+      print('❌ Expert System submit error: $e');
+      print('   Stack: $stack');
+
+      // Check if it's a session expired error (404)
+      final errorMsg = e.toString().toLowerCase();
+      if (errorMsg.contains('404') || errorMsg.contains('session not found')) {
+        state = const ExpertError(
+          'Session expired. Please restart the consultation.',
+        );
+      } else {
+        state = ExpertError('Failed to submit answer: ${e.toString()}');
+      }
     }
   }
 

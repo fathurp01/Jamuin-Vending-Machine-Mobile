@@ -37,6 +37,14 @@ final class ApiExpertSystemRepository implements ExpertSystemRepository {
     required String questionId,
     required String selectedOptionId,
   }) async {
+    print('📤 MOBILE: Calling diagnose endpoint');
+    print('   BaseURL: ${_dio.options.baseUrl}');
+    print('   Path: /expert-system/diagnose');
+    print('   Full URL: ${_dio.options.baseUrl}/expert-system/diagnose');
+    print('   SessionId: $sessionId');
+    print('   QuestionId: $questionId');
+    print('   OptionId: $selectedOptionId');
+
     final res = await _dio.post<Map<String, Object?>>(
       '/expert-system/diagnose',
       data: {

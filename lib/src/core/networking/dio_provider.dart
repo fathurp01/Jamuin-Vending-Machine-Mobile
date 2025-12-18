@@ -23,10 +23,27 @@ final dioProvider = Provider<Dio>((ref) {
         }
         handler.next(options);
       },
+      onError: (error, handler) {
+        // Log detailed error for debugging
+        print('❌ DioError: ${error.type}');
+        print('   URL: ${error.requestOptions.uri}');
+        print('   Method: ${error.requestOptions.method}');
+        print('   Status: ${error.response?.statusCode}');
+        print('   Message: ${error.message}');
+        print('   Response: ${error.response?.data}');
+        handler.next(error);
+      },
     ),
   );
 
-  dio.interceptors.add(LogInterceptor(requestBody: true, responseBody: false));
+  dio.interceptors.add(
+    LogInterceptor(
+      requestBody: true,
+      responseBody: true,
+      error: true,
+      logPrint: (obj) => print('🌐 Dio: $obj'),
+    ),
+  );
 
   return dio;
 });
