@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 
@@ -27,6 +30,16 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   MapLibreMapController? _controller;
   final Map<String, VendingMachine> _symbolToMachine = {};
   bool _symbolsAdded = false;
+
+  StreamSubscription<Position>? _positionSub;
+  LatLng? _myLatLng;
+  Circle? _myPulseCircle;
+  Circle? _myCoreCircle;
+  Circle? _myInnerCircle;
+  Timer? _pulseTimer;
+  DateTime? _pulseStart;
+  bool _didShowLocationHint = false;
+  bool _didAutoPinpoint = false;
 
   // Panel height: minHeight to maxHeight range
   double? _currentPanelHeight;
@@ -65,8 +78,267 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     });
   }
 
+  Future<void> _recenterToMyLocation() async {
+    final controller = _controller;
+    if (controller == null) return;
+
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('GPS tidak aktif. Aktifkan lokasi dulu.'),
+          ),
+        );
+        return;
+      }
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Izin lokasi ditolak. Izinkan lokasi untuk pinpoint.',
+            ),
+          ),
+        );
+        return;
+      }
+
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
+      );
+
+      final ll = LatLng(pos.latitude, pos.longitude);
+      if (mounted) {
+        setState(() {
+          _myLatLng = ll;
+        });
+      }
+
+      await controller.animateCamera(
+        CameraUpdate.newCameraPosition(CameraPosition(target: ll, zoom: 16.0)),
+      );
+
+      // Ensure the pulsing dot becomes visible immediately and keeps updating.
+      await _upsertMyLocationCircles();
+      _startLocationStreamIfPossible();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Gagal ambil lokasi: $e')));
+    }
+  }
+
+  Future<bool> _ensureLocationPermission() async {
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      if (mounted && !_didShowLocationHint) {
+        _didShowLocationHint = true;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'GPS tidak aktif. Aktifkan lokasi untuk melihat dot.',
+            ),
+          ),
+        );
+      }
+      return false;
+    }
+
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    final ok =
+        permission != LocationPermission.denied &&
+        permission != LocationPermission.deniedForever;
+    if (!ok && mounted && !_didShowLocationHint) {
+      _didShowLocationHint = true;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Izin lokasi belum diberikan. Izinkan untuk melihat dot.',
+          ),
+        ),
+      );
+    }
+    return ok;
+  }
+
+  String _colorToHexRgb(Color c) {
+    final rgb = (c.toARGB32() & 0x00FFFFFF).toRadixString(16).padLeft(6, '0');
+    return '#$rgb';
+  }
+
+  Future<void> _upsertMyLocationCircles() async {
+    final controller = _controller;
+    final ll = _myLatLng;
+    if (controller == null || ll == null || !mounted) return;
+
+    final scheme = Theme.of(context).colorScheme;
+    final primaryHex = _colorToHexRgb(scheme.primary);
+    final surfaceHex = _colorToHexRgb(scheme.surface);
+
+    try {
+      _myPulseCircle ??= await controller.addCircle(
+        CircleOptions(
+          geometry: ll,
+          circleRadius: 16.0,
+          circleColor: primaryHex,
+          circleOpacity: 0.0,
+        ),
+      );
+      _myCoreCircle ??= await controller.addCircle(
+        CircleOptions(
+          geometry: ll,
+          circleRadius: 6.0,
+          circleColor: primaryHex,
+          circleOpacity: 1.0,
+        ),
+      );
+      _myInnerCircle ??= await controller.addCircle(
+        CircleOptions(
+          geometry: ll,
+          circleRadius: 3.2,
+          circleColor: surfaceHex,
+          circleOpacity: 1.0,
+        ),
+      );
+
+      await controller.updateCircle(
+        _myPulseCircle!,
+        CircleOptions(geometry: ll),
+      );
+      await controller.updateCircle(
+        _myCoreCircle!,
+        CircleOptions(geometry: ll),
+      );
+      await controller.updateCircle(
+        _myInnerCircle!,
+        CircleOptions(geometry: ll),
+      );
+
+      _startPulseAnimation();
+    } catch (_) {
+      // Ignore (style may not be ready yet)
+    }
+  }
+
+  void _startPulseAnimation() {
+    if (_pulseTimer != null) return;
+    _pulseStart ??= DateTime.now();
+    _pulseTimer = Timer.periodic(const Duration(milliseconds: 50), (_) async {
+      final controller = _controller;
+      final ll = _myLatLng;
+      final pulse = _myPulseCircle;
+      if (controller == null || ll == null || pulse == null || !mounted) {
+        return;
+      }
+
+      final scheme = Theme.of(context).colorScheme;
+      final primaryHex = _colorToHexRgb(scheme.primary);
+
+      final elapsed = DateTime.now().difference(_pulseStart!).inMilliseconds;
+      final t = (elapsed % 1100) / 1100.0;
+      final radius = 10.0 + (22.0 * t);
+      final opacity = (1.0 - t).clamp(0.0, 1.0) * 0.22;
+
+      try {
+        await controller.updateCircle(
+          pulse,
+          CircleOptions(
+            geometry: ll,
+            circleRadius: radius,
+            circleColor: primaryHex,
+            circleOpacity: opacity,
+          ),
+        );
+      } catch (_) {
+        // ignore
+      }
+    });
+  }
+
+  Future<void> _autoPinpointIfNeeded() async {
+    if (_didAutoPinpoint) return;
+    final controller = _controller;
+    final ll = _myLatLng;
+    if (controller == null || ll == null) return;
+
+    _didAutoPinpoint = true;
+    try {
+      await controller.animateCamera(
+        CameraUpdate.newCameraPosition(CameraPosition(target: ll, zoom: 16.0)),
+      );
+    } catch (_) {
+      // If the camera isn't ready yet, allow a later retry.
+      _didAutoPinpoint = false;
+    }
+  }
+
+  Future<void> _startLocationStreamIfPossible() async {
+    final ok = await _ensureLocationPermission();
+    if (!ok) return;
+
+    // Prime once so dot can show immediately (stream may take a moment).
+    try {
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
+      );
+      final ll = LatLng(pos.latitude, pos.longitude);
+      if (mounted) {
+        setState(() {
+          _myLatLng = ll;
+        });
+      }
+      await _autoPinpointIfNeeded();
+      await _upsertMyLocationCircles();
+    } catch (_) {
+      // Ignore
+    }
+
+    _positionSub?.cancel();
+    _positionSub =
+        Geolocator.getPositionStream(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            distanceFilter: 2,
+          ),
+        ).listen((pos) {
+          final ll = LatLng(pos.latitude, pos.longitude);
+          if (!mounted) return;
+          setState(() {
+            _myLatLng = ll;
+          });
+          _autoPinpointIfNeeded();
+          _upsertMyLocationCircles();
+        });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Start listening early; if permission isn't granted yet, this will just no-op.
+    _startLocationStreamIfPossible();
+  }
+
   @override
   void dispose() {
+    _positionSub?.cancel();
+    _pulseTimer?.cancel();
     _controller?.dispose();
     super.dispose();
   }
@@ -261,6 +533,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             // and visually collapsed). Snap logic will decide whether to hide or return to min.
             final panelHeight = _currentPanelHeight!.clamp(0.0, maxSheetHeight);
 
+            // Recenter button sits above the panel and follows its position.
+            final recenterBottom = (_isPanelHidden ? 24.0 : panelHeight + 16.0);
+
             return Scaffold(
               appBar: AppBar(title: const Text('Pilih mesin')),
               body: Stack(
@@ -275,14 +550,31 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     onMapCreated: (c) {
                       _controller = c;
                       c.onSymbolTapped.add(_onSymbolTapped);
+                      _startLocationStreamIfPossible();
+                      _upsertMyLocationCircles();
+                      _autoPinpointIfNeeded();
                     },
                     onStyleLoadedCallback: () =>
                         _addMachineSymbols(machinesWithCoordinates),
-                    myLocationEnabled: true,
+                    // We render our own pulsing dot to match app theme.
+                    myLocationEnabled: false,
                     myLocationTrackingMode: MyLocationTrackingMode.none,
                     compassEnabled: true,
                     rotateGesturesEnabled: true,
                     tiltGesturesEnabled: false,
+                  ),
+
+                  // Pinpoint/recenter button (top-right of map area, above the bottom panel)
+                  Positioned(
+                    right: 16,
+                    bottom: recenterBottom,
+                    child: FloatingActionButton.small(
+                      heroTag: 'recenter_location',
+                      onPressed: _recenterToMyLocation,
+                      backgroundColor: scheme.surfaceContainerHighest,
+                      foregroundColor: scheme.primary,
+                      child: const Icon(Icons.my_location),
+                    ),
                   ),
 
                   // Machine list at bottom (expandable/collapsible)

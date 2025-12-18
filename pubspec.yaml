@@ -47,6 +47,9 @@ dependencies:
   # Maps (MapTiler via MapLibre)
   maplibre_gl: ^0.24.1
 
+  # Location (GPS) for current position pinpoint/recenter
+  geolocator: ^13.0.2
+
   # Local persistence (session + history)
   shared_preferences: ^2.3.3
 

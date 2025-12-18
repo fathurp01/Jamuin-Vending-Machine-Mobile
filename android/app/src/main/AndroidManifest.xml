@@ -2,6 +2,10 @@
     <!-- Needed for MapLibre/MapTiler (and any network calls) in all build variants. -->
     <uses-permission android:name="android.permission.INTERNET"/>
 
+    <!-- Location (GPS) for current position pinpoint/recenter -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+
     <application
         android:label="jamuin"
         android:name="${applicationName}"

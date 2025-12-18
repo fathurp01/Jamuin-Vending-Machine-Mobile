@@ -24,6 +24,7 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
   late final WebViewController _controller;
   bool _loading = true;
   bool _hasNavigated = false;
+  bool _goHome = false;
 
   @override
   void initState() {
@@ -39,14 +40,18 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
             if (_hasNavigated) return NavigationDecision.prevent;
 
             final url = request.url;
-            if (_shouldNavigateToStatus(url)) {
+            if (_shouldNavigateAway(url)) {
               _hasNavigated = true;
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (!mounted) return;
-                context.go(
-                  '/app/tx/${widget.orderId}',
-                  extra: widget.remaining,
-                );
+                if (_goHome) {
+                  context.go('/app/home');
+                } else {
+                  context.go(
+                    '/app/tx/${widget.orderId}',
+                    extra: widget.remaining,
+                  );
+                }
               });
               return NavigationDecision.prevent;
             }
@@ -58,8 +63,20 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
       ..loadRequest(Uri.parse(widget.snapUrl));
   }
 
-  bool _shouldNavigateToStatus(String url) {
+  bool _shouldNavigateAway(String url) {
     final lower = url.toLowerCase();
+
+    // Preferred: detect our configured callback redirects.
+    // Backend uses FRONTEND_URL + /payment/{success|failed|pending}
+    if (lower.contains('/payment/success')) {
+      _goHome = true;
+      return true;
+    }
+    if (lower.contains('/payment/failed') ||
+        lower.contains('/payment/pending')) {
+      _goHome = false;
+      return true;
+    }
 
     final isFinish = lower.contains('/finish') && !lower.contains('/unfinish');
     final isUnfinish = lower.contains('/unfinish');
@@ -82,7 +99,13 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
         lower.contains('transaction_status=expire') ||
         lower.contains('transaction_status=failure');
 
-    return isSuccess || isPending || isFailed;
+    final should = isSuccess || isPending || isFailed;
+    if (should) {
+      // If we only get Midtrans finish/unfinish URLs, keep existing behavior
+      // (go to status) so user can verify.
+      _goHome = false;
+    }
+    return should;
   }
 
   @override
