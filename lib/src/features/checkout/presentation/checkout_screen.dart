@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../cart/application/cart_controller.dart';
 import '../../session/application/session_controller.dart';
+import '../../inventory/application/inventory_controller.dart';
 import '../application/checkout_controller.dart';
 import '../../transactions/domain/transaction_record.dart';
 import '../domain/payment_flow.dart';
@@ -52,9 +53,20 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
     final machineId = session.selectedMachineId;
     final hasSelectedMachine = machineId != null;
-    final stockOk = cart.items.values.every(
-      (it) => it.quantity <= it.product.stock,
-    );
+
+    // Check stock dengan inventory per-machine
+    bool stockOk = hasSelectedMachine;
+    if (hasSelectedMachine) {
+      for (final item in cart.items.values) {
+        final stock = ref.watch(
+          stockForSelectedMachineProvider(item.product.id),
+        );
+        if (item.quantity > stock) {
+          stockOk = false;
+          break;
+        }
+      }
+    }
 
     return Scaffold(
       appBar: AppBar(title: const Text('Checkout')),

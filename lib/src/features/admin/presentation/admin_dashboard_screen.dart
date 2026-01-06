@@ -233,8 +233,18 @@ class AdminDashboardScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 8),
                     OutlinedButton(
+                      onPressed: () => context.go('/app/admin/add-machine'),
+                      child: const Text('Tambah Mesin'),
+                    ),
+                    const SizedBox(height: 8),
+                    OutlinedButton(
+                      onPressed: () => context.go('/app/admin/machine-stock'),
+                      child: const Text('Kelola Stok Per Mesin'),
+                    ),
+                    const SizedBox(height: 8),
+                    OutlinedButton(
                       onPressed: () => context.go('/app/admin/stock'),
-                      child: const Text('Manage stock'),
+                      child: const Text('Manage stock (Global)'),
                     ),
                     const SizedBox(height: 8),
                     OutlinedButton(

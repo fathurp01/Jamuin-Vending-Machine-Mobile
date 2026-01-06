@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../session/application/session_controller.dart';
+import '../../inventory/application/inventory_controller.dart';
 import '../application/cart_controller.dart';
 import '../../../shared/widgets/money_text.dart';
 import '../../../shared/widgets/quantity_stepper.dart';
@@ -19,9 +20,22 @@ class CartScreen extends ConsumerWidget {
 
     final machineId = session.selectedMachineId;
     final hasSelectedMachine = machineId != null;
-    final hasStockIssues = hasSelectedMachine
-        ? cart.items.values.any((it) => it.quantity > it.product.stock)
-        : true;
+
+    // Check stock issues dengan menggunakan inventory per-machine
+    bool hasStockIssues = false;
+    if (hasSelectedMachine) {
+      for (final item in cart.items.values) {
+        final stock = ref.watch(
+          stockForSelectedMachineProvider(item.product.id),
+        );
+        if (item.quantity > stock) {
+          hasStockIssues = true;
+          break;
+        }
+      }
+    } else {
+      hasStockIssues = true; // No machine selected
+    }
 
     return Scaffold(
       appBar: AppBar(title: const Text('Keranjang')),
@@ -58,56 +72,19 @@ class CartScreen extends ConsumerWidget {
           : ListView(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
               children: [
-                RoundedCard(
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(18),
-                    onTap: () => context.push('/app/map?navigateTo=cart'),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.location_on_outlined,
-                            color: scheme.onSurfaceVariant,
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Mesin',
-                                  style: Theme.of(context).textTheme.labelMedium
-                                      ?.copyWith(
-                                        color: scheme.onSurfaceVariant,
-                                      ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  session.selectedMachineName ??
-                                      'Pilih mesin sebelum checkout',
-                                  style: Theme.of(context).textTheme.bodyMedium
-                                      ?.copyWith(
-                                        fontWeight:
-                                            session.selectedMachineName != null
-                                            ? FontWeight.w600
-                                            : FontWeight.w500,
-                                      ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Icon(Icons.chevron_right, color: scheme.primary),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
+                // Machine card dihapus karena sudah dipindah ke product list
                 ...cart.items.values.map((item) {
-                  final stock = hasSelectedMachine ? item.product.stock : null;
-                  final isOverStock = stock != null && item.quantity > stock;
-                  final maxQty = stock == null ? 99 : (stock <= 0 ? 1 : stock);
+                  // Get stock dari selected machine
+                  final stock = hasSelectedMachine
+                      ? ref.watch(
+                          stockForSelectedMachineProvider(item.product.id),
+                        )
+                      : 0;
+                  final isOverStock =
+                      hasSelectedMachine && item.quantity > stock;
+                  final maxQty = !hasSelectedMachine
+                      ? 99
+                      : (stock <= 0 ? 1 : stock);
 
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),

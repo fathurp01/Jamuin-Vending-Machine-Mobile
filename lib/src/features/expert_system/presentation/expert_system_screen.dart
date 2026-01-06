@@ -222,48 +222,57 @@ class ExpertSystemScreen extends ConsumerWidget {
   }
 }
 
-class _Initial extends StatelessWidget {
+class _Initial extends ConsumerWidget {
   const _Initial({required this.onStart});
 
   final VoidCallback onStart;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
-      children: [
-        Icon(Icons.favorite, size: 96, color: scheme.primary),
-        const SizedBox(height: 18),
-        Text(
-          'Konsultasi AI Jamu',
-          textAlign: TextAlign.center,
-          style: Theme.of(
-            context,
-          ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900),
-        ),
-        const SizedBox(height: 10),
-        Text(
-          'Sistem AI akan menanyakan beberapa pertanyaan tentang kondisi kesehatan Anda untuk memberikan rekomendasi jamu yang tepat.',
-          textAlign: TextAlign.center,
-          style: Theme.of(
-            context,
-          ).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
-        ),
-        const SizedBox(height: 18),
-        RoundedCard(
-          child: Column(
-            children: const [
-              _Bullet(text: 'Rekomendasi personal'),
-              _Bullet(text: 'Berdasarkan sistem pakar'),
-              _Bullet(text: 'Cepat dan mudah'),
-            ],
+    return RefreshIndicator(
+      onRefresh: () async {
+        // Reset and refresh
+        ref.invalidate(expertSystemControllerProvider);
+      },
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
+        children: [
+          Icon(Icons.favorite, size: 96, color: scheme.primary),
+          const SizedBox(height: 18),
+          Text(
+            'Konsultasi AI Jamu',
+            textAlign: TextAlign.center,
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900),
           ),
-        ),
-        const SizedBox(height: 18),
-        FilledButton(onPressed: onStart, child: const Text('Mulai Konsultasi')),
-      ],
+          const SizedBox(height: 10),
+          Text(
+            'Sistem AI akan menanyakan beberapa pertanyaan tentang kondisi kesehatan Anda untuk memberikan rekomendasi jamu yang tepat.',
+            textAlign: TextAlign.center,
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 18),
+          RoundedCard(
+            child: Column(
+              children: const [
+                _Bullet(text: 'Rekomendasi personal'),
+                _Bullet(text: 'Berdasarkan sistem pakar'),
+                _Bullet(text: 'Cepat dan mudah'),
+              ],
+            ),
+          ),
+          const SizedBox(height: 18),
+          FilledButton(
+            onPressed: onStart,
+            child: const Text('Mulai Konsultasi'),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -25,6 +25,23 @@ class _FakeProductRepository implements ProductRepository {
   Future<Product?> updateStock({required String id, required int stock}) async {
     return null;
   }
+
+  @override
+  Future<List<Product>> listByMachine(String machineId) async =>
+      const <Product>[];
+
+  @override
+  Future<int> getMachineStock({
+    required String productId,
+    required String machineId,
+  }) async => 0;
+
+  @override
+  Future<void> setMachineStock({
+    required String productId,
+    required String machineId,
+    required int stock,
+  }) async {}
 }
 
 void main() {

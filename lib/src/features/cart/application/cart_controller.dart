@@ -46,10 +46,18 @@ class CartController extends Notifier<CartState> {
     for (final v in itemsRaw) {
       if (v is Map) {
         final item = CartItem.fromJson(v.cast<String, Object?>());
-        items[item.product.id] = item;
+        // Skip expired items (auto cleanup)
+        if (!item.isExpired) {
+          items[item.product.id] = item;
+        }
       }
     }
     state = CartState(items: items);
+
+    // Persist again to remove expired items from storage
+    if (itemsRaw.length != items.length) {
+      _persist();
+    }
   }
 
   Future<void> _persist() async {
@@ -68,10 +76,15 @@ class CartController extends Notifier<CartState> {
     final next = Map<String, CartItem>.from(state.items);
     final existing = next[product.id];
     if (existing == null) {
-      next[product.id] = CartItem(product: product, quantity: quantity);
+      next[product.id] = CartItem(
+        product: product,
+        quantity: quantity,
+        addedAt: DateTime.now(),
+      );
     } else {
       next[product.id] = existing.copyWith(
         quantity: existing.quantity + quantity,
+        // Don't update addedAt when adding more quantity
       );
     }
     state = state.copyWith(items: next);

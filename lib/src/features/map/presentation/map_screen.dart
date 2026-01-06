@@ -358,16 +358,18 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       // User came from cart, return to cart
       context.pop();
       return;
-    } else if (widget.navigateTo == 'products') {
-      // User selected machine first, go to products
-      context.go('/app/products');
-      return;
     }
 
-    // Default: just show snackbar
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('Terpilih: ${machine.name}')));
+    // Always go back to products page after selection (from any source)
+    // This ensures user sees products with selected machine
+    context.go('/app/products');
+
+    // Show snackbar to confirm selection
+    if (mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Terpilih: ${machine.name}')));
+    }
   }
 
   void _onSymbolTapped(Symbol symbol) {

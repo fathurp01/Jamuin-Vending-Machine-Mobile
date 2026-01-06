@@ -5,6 +5,7 @@ import '../presentation/machine_models.dart';
 abstract class MachinesRepository {
   Future<List<VendingMachine>> listAll();
   Future<List<VendingMachine>> listOnline();
+  Future<VendingMachine> createMachine(Map<String, dynamic> machineData);
 }
 
 final class ApiMachinesRepository implements MachinesRepository {
@@ -69,5 +70,11 @@ final class ApiMachinesRepository implements MachinesRepository {
     }
 
     return machinesWithCoords;
+  }
+
+  @override
+  Future<VendingMachine> createMachine(Map<String, dynamic> machineData) async {
+    final res = await _dio.post('/machines', data: machineData);
+    return VendingMachine.fromJson(res.data as Map<String, dynamic>);
   }
 }
