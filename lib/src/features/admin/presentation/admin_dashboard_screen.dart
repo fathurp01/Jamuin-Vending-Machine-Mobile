@@ -15,9 +15,26 @@ final _machineDashboardProvider = FutureProvider<Map<String, Object?>>((
   return res.data ?? const <String, Object?>{};
 });
 
-final _adminTransactionsSummaryProvider = FutureProvider<Map<String, int>>((
-  ref,
-) async {
+class _DailyRevenuePoint {
+  const _DailyRevenuePoint({required this.day, required this.revenue});
+
+  final DateTime day;
+  final int revenue;
+}
+
+class _SalesMetrics {
+  const _SalesMetrics({
+    required this.todayOrders,
+    required this.todayRevenue,
+    required this.last7DaysRevenue,
+  });
+
+  final int todayOrders;
+  final int todayRevenue;
+  final List<_DailyRevenuePoint> last7DaysRevenue;
+}
+
+final _adminSalesMetricsProvider = FutureProvider<_SalesMetrics>((ref) async {
   final dio = ref.watch(dioProvider);
   final res = await dio.get<List<dynamic>>('/payments/transactions');
   final data = res.data ?? const [];
@@ -50,24 +67,67 @@ final _adminTransactionsSummaryProvider = FutureProvider<Map<String, int>>((
         local.day == now.day;
   }
 
+  bool isPaidStatus(String statusRaw) {
+    final status = statusRaw.trim().toLowerCase();
+    return status == 'success' || status == 'paid' || status == 'settlement';
+  }
+
+  DateTime dayOnly(DateTime dt) {
+    final local = dt.toLocal();
+    return DateTime(local.year, local.month, local.day);
+  }
+
   int todayOrders = 0;
   int todayRevenue = 0;
+
+  // Revenue buckets for the last 7 days (including today), in local time.
+  final start = DateTime(
+    now.year,
+    now.month,
+    now.day,
+  ).subtract(const Duration(days: 6));
+  final days = List<DateTime>.generate(
+    7,
+    (i) => start.add(Duration(days: i)),
+    growable: false,
+  );
+  final revenueByDay = <DateTime, int>{for (final d in days) d: 0};
 
   for (final v in data) {
     if (v is! Map) continue;
     final m = v.cast<String, Object?>();
     final createdAt = toDateTime(m['createdAt']);
-    if (!isToday(createdAt)) continue;
 
-    todayOrders += 1;
-    final status = ((m['status'] as String?) ?? '').trim().toLowerCase();
+    final statusRaw = (m['status'] as String?) ?? '';
     final gross = toInt(m['grossAmount']);
-    if (status == 'success' || status == 'paid' || status == 'settlement') {
-      todayRevenue += gross;
+
+    // Today summary.
+    if (isToday(createdAt)) {
+      todayOrders += 1;
+      if (isPaidStatus(statusRaw)) {
+        todayRevenue += gross;
+      }
+    }
+
+    // Last 7 days revenue.
+    if (createdAt != null && isPaidStatus(statusRaw)) {
+      final d = dayOnly(createdAt);
+      if (revenueByDay.containsKey(d)) {
+        revenueByDay[d] = (revenueByDay[d] ?? 0) + gross;
+      }
     }
   }
 
-  return {'orders': todayOrders, 'revenue': todayRevenue};
+  final points = [
+    for (final d in days)
+      _DailyRevenuePoint(day: d, revenue: revenueByDay[d] ?? 0),
+  ];
+
+  return _SalesMetrics(
+    todayOrders: todayOrders,
+    todayRevenue: todayRevenue,
+    last7DaysRevenue: points,
+  );
 });
 
 class AdminDashboardScreen extends ConsumerWidget {
@@ -125,11 +185,11 @@ class AdminDashboardScreen extends ConsumerWidget {
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(_machineDashboardProvider);
-          ref.invalidate(_adminTransactionsSummaryProvider);
+          ref.invalidate(_adminSalesMetricsProvider);
           // Wait for fresh data so the indicator doesn't stop too early.
           await Future.wait([
             ref.read(_machineDashboardProvider.future),
-            ref.read(_adminTransactionsSummaryProvider.future),
+            ref.read(_adminSalesMetricsProvider.future),
           ]);
         },
         child: ListView(
@@ -181,13 +241,14 @@ class AdminDashboardScreen extends ConsumerWidget {
             Consumer(
               builder: (context, ref, _) {
                 final dashAsync = ref.watch(_machineDashboardProvider);
-                final sumAsync = ref.watch(_adminTransactionsSummaryProvider);
+                final salesAsync = ref.watch(_adminSalesMetricsProvider);
 
                 final online = dashAsync.valueOrNull?['online'];
                 final maintenance = dashAsync.valueOrNull?['maintenance'];
 
-                final orders = sumAsync.valueOrNull?['orders'];
-                final revenue = sumAsync.valueOrNull?['revenue'];
+                final orders = salesAsync.valueOrNull?.todayOrders;
+                final revenue = salesAsync.valueOrNull?.todayRevenue;
+                final series = salesAsync.valueOrNull?.last7DaysRevenue;
 
                 String fmtRp(int v) {
                   // Simple compact formatting without adding extra dependencies.
@@ -238,6 +299,30 @@ class AdminDashboardScreen extends ConsumerWidget {
                           ),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 12),
+                    RoundedCard(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Grafik revenue (7 hari)',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 10),
+                          if (series == null)
+                            Text(
+                              '—',
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(color: scheme.onSurfaceVariant),
+                            )
+                          else
+                            _RevenueBarChart(
+                              points: series,
+                              formatValue: fmtRp,
+                            ),
+                        ],
+                      ),
                     ),
                   ],
                 );
@@ -357,6 +442,119 @@ class _MetricCard extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RevenueBarChart extends StatelessWidget {
+  const _RevenueBarChart({required this.points, required this.formatValue});
+
+  final List<_DailyRevenuePoint> points;
+  final String Function(int value) formatValue;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    final maxValue = points.fold<int>(0, (prev, p) {
+      if (p.revenue > prev) return p.revenue;
+      return prev;
+    });
+
+    // Fixed chart height to keep layout stable.
+    const chartHeight = 120.0;
+
+    String fmtDay(DateTime d) {
+      // Keep it simple without intl: dd/MM
+      final dd = d.day.toString().padLeft(2, '0');
+      final mm = d.month.toString().padLeft(2, '0');
+      return '$dd/$mm';
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          height: chartHeight,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              for (final p in points)
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 3),
+                    child: _RevenueBar(
+                      value: p.revenue,
+                      maxValue: maxValue,
+                      color: scheme.primary,
+                      background: scheme.surfaceContainerHighest,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            for (final p in points)
+              Expanded(
+                child: Text(
+                  fmtDay(p.day),
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          maxValue == 0
+              ? 'Tidak ada transaksi sukses 7 hari terakhir.'
+              : 'Puncak: ${formatValue(maxValue)}',
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+        ),
+      ],
+    );
+  }
+}
+
+class _RevenueBar extends StatelessWidget {
+  const _RevenueBar({
+    required this.value,
+    required this.maxValue,
+    required this.color,
+    required this.background,
+  });
+
+  final int value;
+  final int maxValue;
+  final Color color;
+  final Color background;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = maxValue <= 0 ? 0.0 : (value / maxValue).clamp(0.0, 1.0);
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          ColoredBox(color: background),
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: FractionallySizedBox(
+              heightFactor: t,
+              child: ColoredBox(color: color.withValues(alpha: 0.75)),
             ),
           ),
         ],
