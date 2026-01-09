@@ -62,8 +62,10 @@ final class ApiAuthRepository implements AuthRepository {
     final user = AuthUser.fromJson(
       (data['user'] as Map).cast<String, Object?>(),
     );
-    final token = (data['token'] as String?) ?? '';
-    if (token.trim().isEmpty) {
+    final token =
+        ((data['token'] as String?) ?? (data['access_token'] as String?) ?? '')
+            .trim();
+    if (token.isEmpty) {
       throw DioException(
         requestOptions: res.requestOptions,
         response: res,
@@ -94,8 +96,10 @@ final class ApiAuthRepository implements AuthRepository {
     final user = AuthUser.fromJson(
       (data['user'] as Map).cast<String, Object?>(),
     );
-    final token = (data['token'] as String?) ?? '';
-    if (token.trim().isEmpty) {
+    final token =
+        ((data['token'] as String?) ?? (data['access_token'] as String?) ?? '')
+            .trim();
+    if (token.isEmpty) {
       throw DioException(
         requestOptions: res.requestOptions,
         response: res,

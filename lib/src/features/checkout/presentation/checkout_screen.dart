@@ -109,10 +109,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                       ],
                     ),
                   ),
-                  TextButton(
-                    onPressed: () => context.go('/app/map'),
-                    child: const Text('Ubah'),
-                  ),
                 ],
               ),
             ),

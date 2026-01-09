@@ -26,9 +26,28 @@ class AdminTransactionItem {
   final String machineName;
 
   factory AdminTransactionItem.fromJson(Map<String, Object?> json) {
-    final createdAt =
-        DateTime.tryParse((json['createdAt'] as String?) ?? '') ??
-        DateTime.fromMillisecondsSinceEpoch(0);
+    int toInt(Object? v, {int fallback = 0}) {
+      if (v is int) return v;
+      if (v is num) return v.toInt();
+      if (v is String) return int.tryParse(v.trim()) ?? fallback;
+      return fallback;
+    }
+
+    DateTime parseCreatedAt(Object? v) {
+      if (v is DateTime) return v;
+      if (v is String) {
+        return DateTime.tryParse(v) ?? DateTime.fromMillisecondsSinceEpoch(0);
+      }
+      if (v is num) {
+        // Accept either seconds or milliseconds.
+        final asInt = v.toInt();
+        final ms = asInt < 100000000000 ? asInt * 1000 : asInt;
+        return DateTime.fromMillisecondsSinceEpoch(ms);
+      }
+      return DateTime.fromMillisecondsSinceEpoch(0);
+    }
+
+    final createdAt = parseCreatedAt(json['createdAt']);
 
     String getNestedName(Object? v, {required String fallback}) {
       if (v is Map) {
@@ -51,11 +70,11 @@ class AdminTransactionItem {
     }
 
     return AdminTransactionItem(
-      id: ((json['id'] as num?) ?? 0).toInt(),
+      id: toInt(json['id']),
       orderId: (json['orderId'] as String?) ?? '',
       status: (json['status'] as String?) ?? 'pending',
-      grossAmount: ((json['grossAmount'] as num?) ?? 0).toInt(),
-      quantity: ((json['quantity'] as num?) ?? 1).toInt(),
+      grossAmount: toInt(json['grossAmount']),
+      quantity: toInt(json['quantity'], fallback: 1),
       paymentType: json['paymentType'] as String?,
       createdAt: createdAt,
       productName: getNestedProduct(json['product'], fallback: '-'),

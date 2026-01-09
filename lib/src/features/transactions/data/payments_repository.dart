@@ -199,9 +199,19 @@ final class ApiPaymentsRepository implements PaymentsRepository {
 
   @override
   Future<List<PaymentHistoryItem>> myHistory() async {
-    final res = await _dio.get<List<dynamic>>('/payments/my-history');
-    final data = res.data ?? const [];
-    return data
+    final res = await _dio.get<dynamic>('/payments/my-history');
+    final body = res.data;
+
+    final List<dynamic> rawList;
+    if (body is List) {
+      rawList = body;
+    } else if (body is Map && body['data'] is List) {
+      rawList = body['data'] as List;
+    } else {
+      rawList = const [];
+    }
+
+    return rawList
         .whereType<Map>()
         .map((e) => PaymentHistoryItem.fromJson(e.cast<String, Object?>()))
         .toList(growable: false);

@@ -42,8 +42,8 @@ final class LocalSessionRepository implements SessionRepository {
       token: token,
       role: role,
       points: (m['points'] as int?) ?? 120,
-      selectedMachineId: m['selectedMachineId'] as String?,
-      selectedMachineName: m['selectedMachineName'] as String?,
+      selectedMachineId: null,
+      selectedMachineName: null,
     );
   }
 
@@ -64,8 +64,9 @@ final class LocalSessionRepository implements SessionRepository {
       'token': state.token,
       'role': state.role == UserRole.admin ? 'admin' : 'customer',
       'points': state.points,
-      'selectedMachineId': state.selectedMachineId,
-      'selectedMachineName': state.selectedMachineName,
+      // Do not persist machine selection across app restarts.
+      'selectedMachineId': null,
+      'selectedMachineName': null,
     });
   }
 

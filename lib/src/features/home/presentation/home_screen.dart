@@ -99,13 +99,13 @@ class HomeScreen extends ConsumerWidget {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          '${session.points}',
+                          'Coming Soon',
                           style: Theme.of(context).textTheme.headlineSmall
                               ?.copyWith(fontWeight: FontWeight.w800),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Kumpulkan poin dari setiap transaksi.',
+                          'Fitur poin akan hadir di update berikutnya.',
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(color: scheme.onSurfaceVariant),
                         ),
@@ -141,7 +141,7 @@ class HomeScreen extends ConsumerWidget {
                     icon: Icons.local_drink_outlined,
                     title: 'Lihat Produk',
                     subtitle: 'Minuman & lainnya',
-                    onTap: () => context.push('/app/products'),
+                    onTap: () => context.go('/app/products'),
                   ),
                 ),
               ],
@@ -164,7 +164,7 @@ class HomeScreen extends ConsumerWidget {
             SectionHeader(
               title: 'Populer',
               trailing: TextButton(
-                onPressed: () => context.push('/app/products'),
+                onPressed: () => context.go('/app/products'),
                 child: const Text('Lihat semua'),
               ),
             ),
@@ -281,7 +281,7 @@ class HomeScreen extends ConsumerWidget {
                     ),
                   ),
                   FilledButton(
-                    onPressed: () => context.push('/app/products'),
+                    onPressed: () => context.go('/app/products'),
                     child: const Text('Mulai'),
                   ),
                 ],
@@ -387,18 +387,18 @@ class _BannerCarouselState extends State<_BannerCarousel> {
 
     final items = <({String title, String subtitle, IconData icon})>[
       (
-        title: 'Beli 2, lebih hemat',
-        subtitle: 'Promo bundling terbatas',
+        title: 'Stok sesuai mesin',
+        subtitle: 'Pilih mesin untuk lihat ketersediaan',
         icon: Icons.local_offer_outlined,
       ),
       (
-        title: 'Ambil lebih cepat',
-        subtitle: 'Pilih mesin terdekat',
+        title: 'Pilih mesin terdekat',
+        subtitle: 'Biar ambil pesanan lebih cepat',
         icon: Icons.location_on_outlined,
       ),
       (
-        title: 'Kumpulkan poin',
-        subtitle: 'Tukar reward tiap minggu',
+        title: 'Bayar & ambil di mesin',
+        subtitle: 'Checkout lalu ambil langsung',
         icon: Icons.stars_outlined,
       ),
     ];

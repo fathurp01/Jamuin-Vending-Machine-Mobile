@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../data/product_repository.dart';
 import '../../cart/application/cart_controller.dart';
-import '../../session/application/session_controller.dart';
 import '../../inventory/application/inventory_controller.dart';
+import '../../session/application/session_controller.dart';
 import '../../../shared/widgets/money_text.dart';
 import '../../../shared/widgets/rounded_card.dart';
+import '../data/product_repository.dart';
+import '../domain/product.dart';
 
 class ProductListScreen extends ConsumerStatefulWidget {
   const ProductListScreen({super.key});
@@ -17,37 +18,25 @@ class ProductListScreen extends ConsumerStatefulWidget {
 }
 
 class _ProductListScreenState extends ConsumerState<ProductListScreen> {
-  @override
-  void initState() {
-    super.initState();
-    // Sync inventory when screen loads
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _syncInventory();
-    });
-  }
+  String? _lastInventorySyncKey;
 
-  void _syncInventory() {
-    final session = ref.read(sessionControllerProvider);
-    final selectedMachineId = session.selectedMachineId;
+  Future<void> _syncInventoryFromProducts({
+    required String machineId,
+    required List<Product> items,
+  }) async {
+    final key =
+        '$machineId:${items.length}:${items.map((e) => e.id).join(',')}';
+    if (_lastInventorySyncKey == key) return;
+    _lastInventorySyncKey = key;
 
-    if (selectedMachineId != null) {
-      // Load products untuk sync inventory
-      ref
-          .read(productsByMachineProvider(selectedMachineId).future)
-          .then((products) {
-            final inventory = ref.read(inventoryControllerProvider.notifier);
-            for (final product in products) {
-              // Sync stock dari API response ke inventory
-              inventory.setStock(
-                machineId: selectedMachineId,
-                productId: product.id,
-                stock: product.stock,
-              );
-            }
-          })
-          .catchError((_) {
-            // Silently fail
-          });
+    final inventory = ref.read(inventoryControllerProvider.notifier);
+    for (final p in items) {
+      final stock = p.stockForMachine(machineId);
+      await inventory.setStock(
+        machineId: machineId,
+        productId: p.id,
+        stock: stock,
+      );
     }
   }
 
@@ -57,12 +46,10 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
     final session = ref.watch(sessionControllerProvider);
     final selectedMachineId = session.selectedMachineId;
     final selectedMachineName = session.selectedMachineName;
+    final hasSelectedMachine = selectedMachineId != null;
     final scheme = Theme.of(context).colorScheme;
 
-    // Fetch products berdasarkan selected machine
-    final productsAsync = selectedMachineId != null
-        ? ref.watch(productsByMachineProvider(selectedMachineId))
-        : null;
+    final productsAsync = ref.watch(productListProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -80,51 +67,63 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
           const SizedBox(width: 8),
         ],
       ),
-      body: selectedMachineId == null
-          ? Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.store, size: 64, color: scheme.onSurfaceVariant),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Pilih Mesin Terlebih Dahulu',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 32),
-                    child: Text(
-                      'Silakan pilih mesin vending untuk melihat produk yang tersedia',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  FilledButton.icon(
-                    onPressed: () => context.push('/app/map'),
-                    icon: const Icon(Icons.location_on),
-                    label: const Text('Pilih Mesin'),
-                  ),
-                ],
+      body: productsAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.warning_amber_outlined,
+                  color: scheme.error,
+                  size: 44,
+                ),
+                const SizedBox(height: 10),
+                Text('Gagal memuat produk.\n$e', textAlign: TextAlign.center),
+                const SizedBox(height: 12),
+                FilledButton(
+                  onPressed: () => ref.invalidate(productListProvider),
+                  child: const Text('Coba Lagi'),
+                ),
+              ],
+            ),
+          ),
+        ),
+        data: (items) {
+          if (hasSelectedMachine) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              _syncInventoryFromProducts(
+                machineId: selectedMachineId!,
+                items: items,
+              );
+            });
+          }
+
+          return RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(productListProvider);
+              await ref.read(productListProvider.future);
+            },
+            child: ListView.builder(
+              padding: EdgeInsets.fromLTRB(
+                16,
+                8,
+                16,
+                cart.items.isEmpty ? 24 : 100,
               ),
-            )
-          : productsAsync == null
-          ? const Center(child: CircularProgressIndicator())
-          : productsAsync.when(
-              data: (items) => Column(
-                children: [
-                  // Card pilih mesin di atas
-                  Container(
-                    margin: const EdgeInsets.all(16),
+              itemCount: items.isEmpty ? 2 : items.length + 1,
+              itemBuilder: (context, index) {
+                if (index == 0) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
                     child: RoundedCard(
                       child: InkWell(
                         borderRadius: BorderRadius.circular(18),
-                        onTap: () => context.push('/app/map'),
+                        onTap: () =>
+                            context.push('/app/map?navigateTo=products'),
                         child: Padding(
                           padding: const EdgeInsets.all(16),
                           child: Row(
@@ -148,7 +147,9 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      'Mesin Terpilih',
+                                      hasSelectedMachine
+                                          ? 'Mesin Terpilih'
+                                          : 'Pilih Mesin Terlebih Dahulu',
                                       style: Theme.of(context)
                                           .textTheme
                                           .labelMedium
@@ -158,7 +159,8 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      selectedMachineName ?? 'Pilih mesin',
+                                      selectedMachineName ??
+                                          'Tap untuk memilih mesin',
                                       style: Theme.of(context)
                                           .textTheme
                                           .bodyMedium
@@ -175,177 +177,125 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
                         ),
                       ),
                     ),
-                  ),
-                  // Product list
-                  Expanded(
-                    child: items.isEmpty
-                        ? Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.inventory_2_outlined,
-                                  size: 48,
-                                  color: scheme.onSurfaceVariant,
-                                ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  'Tidak ada produk',
-                                  style: Theme.of(
-                                    context,
-                                  ).textTheme.titleMedium,
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Mesin ini belum memiliki produk',
-                                  style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(
-                                        color: scheme.onSurfaceVariant,
-                                      ),
-                                ),
-                              ],
-                            ),
-                          )
-                        : ListView.separated(
-                            padding: EdgeInsets.fromLTRB(
-                              16,
-                              0,
-                              16,
-                              cart.items.isEmpty ? 24 : 100,
-                            ),
-                            itemCount: items.length,
-                            separatorBuilder: (_, __) =>
-                                const SizedBox(height: 12),
-                            itemBuilder: (context, index) {
-                              final p = items[index];
-                              // Stock sudah ada di p.stock dari API response
-                              final stock = p.stock;
-                              final isOutOfStock = stock <= 0;
+                  );
+                }
 
-                              return InkWell(
-                                borderRadius: BorderRadius.circular(20),
-                                onTap: () =>
-                                    context.push('/app/products/${p.id}'),
-                                child: RoundedCard(
-                                  child: Row(
+                if (items.isEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 60),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.inventory_2_outlined,
+                          size: 48,
+                          color: scheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Tidak ada produk',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                final p = items[index - 1];
+                final stock = hasSelectedMachine
+                    ? p.stockForMachine(selectedMachineId!)
+                    : 0;
+                final isOutOfStock = hasSelectedMachine && stock <= 0;
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Opacity(
+                    opacity: hasSelectedMachine ? 1.0 : 0.60,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(20),
+                      onTap: hasSelectedMachine
+                          ? () => context.push('/app/products/${p.id}')
+                          : null,
+                      child: RoundedCard(
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 64,
+                              height: 64,
+                              decoration: BoxDecoration(
+                                color: scheme.primary.withValues(alpha: 0.10),
+                                borderRadius: BorderRadius.circular(18),
+                              ),
+                              child: Icon(
+                                Icons.local_cafe_outlined,
+                                color: scheme.primary,
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    p.name,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.titleMedium,
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    p.benefits,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(context).textTheme.bodySmall
+                                        ?.copyWith(
+                                          color: scheme.onSurfaceVariant,
+                                        ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Row(
                                     children: [
-                                      Container(
-                                        width: 64,
-                                        height: 64,
-                                        decoration: BoxDecoration(
-                                          color: scheme.primary.withValues(
-                                            alpha: 0.10,
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            18,
-                                          ),
-                                        ),
-                                        child: Icon(
-                                          Icons.local_cafe_outlined,
-                                          color: scheme.primary,
-                                        ),
+                                      MoneyText(
+                                        p.price,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleSmall
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w800,
+                                            ),
                                       ),
-                                      const SizedBox(width: 14),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              p.name,
-                                              style: Theme.of(
-                                                context,
-                                              ).textTheme.titleMedium,
-                                            ),
-                                            const SizedBox(height: 2),
-                                            Text(
-                                              p.benefits,
-                                              style: Theme.of(context)
-                                                  .textTheme
-                                                  .bodySmall
-                                                  ?.copyWith(
-                                                    color:
-                                                        scheme.onSurfaceVariant,
-                                                  ),
-                                            ),
-                                            const SizedBox(height: 8),
-                                            Row(
-                                              children: [
-                                                MoneyText(p.price),
-                                                const Spacer(),
-                                                Text(
-                                                  isOutOfStock
-                                                      ? 'Stok habis'
-                                                      : 'Stok: $stock',
-                                                  style: Theme.of(context)
-                                                      .textTheme
-                                                      .bodySmall
-                                                      ?.copyWith(
-                                                        color: isOutOfStock
-                                                            ? scheme.error
-                                                            : scheme
-                                                                  .onSurfaceVariant,
-                                                        fontWeight: isOutOfStock
-                                                            ? FontWeight.w800
-                                                            : FontWeight.w600,
-                                                      ),
-                                                ),
-                                              ],
-                                            ),
-                                          ],
+                                      const Spacer(),
+                                      if (hasSelectedMachine)
+                                        Text(
+                                          isOutOfStock
+                                              ? 'Stok habis'
+                                              : 'Stok: $stock',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(
+                                                color: isOutOfStock
+                                                    ? scheme.error
+                                                    : scheme.primary,
+                                                fontWeight: FontWeight.w700,
+                                              ),
                                         ),
-                                      ),
                                     ],
                                   ),
-                                ),
-                              );
-                            },
-                          ),
-                  ),
-                ],
-              ),
-              error: (e, _) => Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.error_outline, size: 48, color: scheme.error),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Gagal memuat produk',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      e.toString(),
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ],
-                ),
-              ),
-              loading: () => const Center(child: CircularProgressIndicator()),
+                  ),
+                );
+              },
             ),
-      bottomNavigationBar: cart.items.isEmpty
-          ? null
-          : SafeArea(
-              minimum: const EdgeInsets.fromLTRB(16, 10, 16, 16),
-              child: FilledButton(
-                onPressed: () => context.go('/app/cart'),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Badge(
-                      isLabelVisible: cart.itemCount > 0,
-                      label: Text('${cart.itemCount}'),
-                      child: const Icon(Icons.shopping_bag_outlined),
-                    ),
-                    const SizedBox(width: 12),
-                    const Text('Bayar Sekarang'),
-                  ],
-                ),
-              ),
-            ),
+          );
+        },
+      ),
     );
   }
 }
