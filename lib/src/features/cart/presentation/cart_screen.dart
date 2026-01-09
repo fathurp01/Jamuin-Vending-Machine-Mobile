@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../session/application/session_controller.dart';
+import '../../inventory/application/inventory_controller.dart';
 import '../application/cart_controller.dart';
 import '../../../shared/widgets/money_text.dart';
 import '../../../shared/widgets/quantity_stepper.dart';
@@ -19,12 +20,39 @@ class CartScreen extends ConsumerWidget {
 
     final machineId = session.selectedMachineId;
     final hasSelectedMachine = machineId != null;
-    final hasStockIssues = hasSelectedMachine
-        ? cart.items.values.any((it) => it.quantity > it.product.stock)
-        : true;
+
+    // Check stock issues dengan menggunakan inventory per-machine
+    bool hasStockIssues = false;
+    if (hasSelectedMachine) {
+      for (final item in cart.items.values) {
+        final stock = ref.watch(
+          stockForSelectedMachineProvider(item.product.id),
+        );
+        if (item.quantity > stock) {
+          hasStockIssues = true;
+          break;
+        }
+      }
+    } else {
+      hasStockIssues = true; // No machine selected
+    }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Keranjang')),
+      appBar: AppBar(
+        title: const Text('Keranjang'),
+        leading: IconButton(
+          tooltip: 'Kembali',
+          onPressed: () {
+            final nav = Navigator.of(context);
+            if (nav.canPop()) {
+              nav.pop();
+              return;
+            }
+            context.go('/app/products');
+          },
+          icon: const Icon(Icons.arrow_back),
+        ),
+      ),
       body: cart.items.isEmpty
           ? Center(
               child: Column(
@@ -49,7 +77,7 @@ class CartScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 14),
                   FilledButton(
-                    onPressed: () => context.push('/app/products'),
+                    onPressed: () => context.go('/app/products'),
                     child: const Text('Lihat produk'),
                   ),
                 ],
@@ -66,17 +94,26 @@ class CartScreen extends ConsumerWidget {
                       padding: const EdgeInsets.all(16),
                       child: Row(
                         children: [
-                          Icon(
-                            Icons.location_on_outlined,
-                            color: scheme.onSurfaceVariant,
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: scheme.primary.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Icon(
+                              Icons.storefront,
+                              color: scheme.primary,
+                              size: 24,
+                            ),
                           ),
-                          const SizedBox(width: 10),
+                          const SizedBox(width: 12),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Mesin',
+                                  'Mesin terpilih',
                                   style: Theme.of(context).textTheme.labelMedium
                                       ?.copyWith(
                                         color: scheme.onSurfaceVariant,
@@ -85,19 +122,14 @@ class CartScreen extends ConsumerWidget {
                                 const SizedBox(height: 4),
                                 Text(
                                   session.selectedMachineName ??
-                                      'Pilih mesin sebelum checkout',
+                                      'Belum dipilih (tap untuk pilih)',
                                   style: Theme.of(context).textTheme.bodyMedium
-                                      ?.copyWith(
-                                        fontWeight:
-                                            session.selectedMachineName != null
-                                            ? FontWeight.w600
-                                            : FontWeight.w500,
-                                      ),
+                                      ?.copyWith(fontWeight: FontWeight.w700),
                                 ),
                               ],
                             ),
                           ),
-                          Icon(Icons.chevron_right, color: scheme.primary),
+                          Icon(Icons.edit_outlined, color: scheme.primary),
                         ],
                       ),
                     ),
@@ -105,101 +137,159 @@ class CartScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 12),
                 ...cart.items.values.map((item) {
-                  final stock = hasSelectedMachine ? item.product.stock : null;
-                  final isOverStock = stock != null && item.quantity > stock;
-                  final maxQty = stock == null ? 99 : (stock <= 0 ? 1 : stock);
+                  // Get stock dari selected machine
+                  final stock = hasSelectedMachine
+                      ? ref.watch(
+                          stockForSelectedMachineProvider(item.product.id),
+                        )
+                      : 0;
+                  final isOverStock =
+                      hasSelectedMachine && item.quantity > stock;
+                  final isOutOfStock = hasSelectedMachine && stock <= 0;
+                  final maxQty = !hasSelectedMachine
+                      ? 99
+                      : (stock < 0 ? 0 : stock);
+                  final minQty = (!hasSelectedMachine || isOutOfStock) ? 0 : 1;
 
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: RoundedCard(
-                      child: Row(
+                      child: Stack(
                         children: [
-                          Container(
-                            width: 52,
-                            height: 52,
-                            decoration: BoxDecoration(
-                              color: scheme.primary.withValues(alpha: 0.10),
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Icon(
-                              Icons.local_cafe_outlined,
-                              color: scheme.primary,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
+                          Row(
+                            children: [
+                              Container(
+                                width: 52,
+                                height: 52,
+                                decoration: BoxDecoration(
+                                  color: scheme.primary.withValues(alpha: 0.10),
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Icon(
+                                  Icons.local_cafe_outlined,
+                                  color: scheme.primary,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Expanded(
-                                      child: Text(
-                                        item.product.name,
-                                        style: Theme.of(
-                                          context,
-                                        ).textTheme.titleMedium,
-                                      ),
-                                    ),
-                                    IconButton(
-                                      tooltip: 'Hapus',
-                                      onPressed: () => ref
-                                          .read(cartControllerProvider.notifier)
-                                          .remove(item.product.id),
-                                      icon: const Icon(Icons.delete_outline),
-                                    ),
-                                  ],
-                                ),
-                                MoneyText(
-                                  item.product.price,
-                                  style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(
-                                        color: scheme.onSurfaceVariant,
-                                      ),
-                                ),
-                                if (stock != null) ...[
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    isOverStock
-                                        ? 'Sisa stok: $stock (kurangi jumlah)'
-                                        : 'Sisa stok: $stock',
-                                    style: Theme.of(context).textTheme.bodySmall
-                                        ?.copyWith(
-                                          color: isOverStock
-                                              ? scheme.error
-                                              : scheme.onSurfaceVariant,
-                                          fontWeight: isOverStock
-                                              ? FontWeight.w800
-                                              : FontWeight.w600,
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            item.product.name,
+                                            style: Theme.of(
+                                              context,
+                                            ).textTheme.titleMedium,
+                                          ),
                                         ),
-                                  ),
-                                ],
-                                const SizedBox(height: 10),
-                                Row(
-                                  children: [
-                                    QuantityStepper(
-                                      value: item.quantity,
-                                      min: 1,
-                                      max: maxQty,
-                                      onChanged: (v) => ref
-                                          .read(cartControllerProvider.notifier)
-                                          .setQuantity(item.product.id, v),
+                                        IconButton(
+                                          tooltip: 'Hapus',
+                                          onPressed: () => ref
+                                              .read(
+                                                cartControllerProvider.notifier,
+                                              )
+                                              .remove(item.product.id),
+                                          icon: const Icon(
+                                            Icons.delete_outline,
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                    const Spacer(),
                                     MoneyText(
-                                      item.lineTotal,
+                                      item.product.price,
                                       style: Theme.of(context)
                                           .textTheme
-                                          .titleSmall
+                                          .bodySmall
                                           ?.copyWith(
-                                            fontWeight: FontWeight.w900,
+                                            color: scheme.onSurfaceVariant,
                                           ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    if (!hasSelectedMachine)
+                                      Text(
+                                        'Pilih mesin untuk cek stok.',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: scheme.onSurfaceVariant,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                      )
+                                    else
+                                      Text(
+                                        isOutOfStock
+                                            ? 'Out of stock'
+                                            : (isOverStock
+                                                  ? 'Sisa stok: $stock (kurangi jumlah)'
+                                                  : 'Sisa stok: $stock'),
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color:
+                                                  (isOutOfStock || isOverStock)
+                                                  ? scheme.error
+                                                  : scheme.onSurfaceVariant,
+                                              fontWeight:
+                                                  (isOutOfStock || isOverStock)
+                                                  ? FontWeight.w800
+                                                  : FontWeight.w600,
+                                            ),
+                                      ),
+                                    const SizedBox(height: 10),
+                                    Row(
+                                      children: [
+                                        QuantityStepper(
+                                          value: item.quantity,
+                                          min: minQty,
+                                          max: maxQty,
+                                          onChanged: (v) => ref
+                                              .read(
+                                                cartControllerProvider.notifier,
+                                              )
+                                              .setQuantity(item.product.id, v),
+                                        ),
+                                        const Spacer(),
+                                        MoneyText(
+                                          item.lineTotal,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleSmall
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.w900,
+                                              ),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
+                          if (isOutOfStock)
+                            Positioned.fill(
+                              child: IgnorePointer(
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: scheme.surfaceContainerHighest
+                                        .withValues(alpha: 0.55),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    'OUT OF STOCK',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleSmall
+                                        ?.copyWith(fontWeight: FontWeight.w900),
+                                  ),
+                                ),
+                              ),
+                            ),
                         ],
                       ),
                     ),

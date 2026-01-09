@@ -51,8 +51,9 @@ class VendingMachine {
       currentTemperature: toDouble(json['currentTemperature']),
       currentHumidity: toDouble(json['currentHumidity']),
       lastOnline: toDateTime(json['lastOnline']),
-      lat: toDouble(json['lat']),
-      lng: toDouble(json['lng']),
+      // Backend uses latitude/longitude, but keep lat/lng for backward compatibility.
+      lat: toDouble(json['lat']) ?? toDouble(json['latitude']),
+      lng: toDouble(json['lng']) ?? toDouble(json['longitude']),
     );
   }
 }

@@ -8,6 +8,22 @@ abstract class ProductRepository {
   Future<List<Product>> list();
   Future<Product?> getById(String id);
 
+  /// Get products available in specific machine
+  Future<List<Product>> listByMachine(String machineId);
+
+  /// Get stock of product in specific machine
+  Future<int> getMachineStock({
+    required String productId,
+    required String machineId,
+  });
+
+  /// Set stock of product in specific machine
+  Future<void> setMachineStock({
+    required String productId,
+    required String machineId,
+    required int stock,
+  });
+
   /// Updates product fields (currently used for stock management).
   Future<Product?> updateStock({required String id, required int stock});
 }
@@ -59,6 +75,71 @@ final class ApiProductRepository implements ProductRepository {
       return null;
     }
   }
+
+  @override
+  Future<List<Product>> listByMachine(String machineId) async {
+    final numeric = int.tryParse(machineId);
+    if (numeric == null) return const [];
+
+    try {
+      final res = await _dio.get<List<dynamic>>('/products/machine/$numeric');
+      final data = res.data ?? const [];
+      return data
+          .whereType<Map>()
+          .map((e) {
+            final map = e.cast<String, Object?>();
+            // Response structure: { product: {...}, stok: number }
+            final productData = map['product'] as Map<String, Object?>?;
+            if (productData == null) return null;
+
+            // Inject stock from machine_products into product object
+            final stok = (map['stok'] as num?)?.toInt() ?? 0;
+            final productWithStock = Map<String, Object?>.from(productData);
+            productWithStock['stok'] = stok;
+
+            return Product.fromJson(productWithStock);
+          })
+          .whereType<Product>()
+          .toList(growable: false);
+    } on DioException {
+      return const [];
+    }
+  }
+
+  @override
+  Future<int> getMachineStock({
+    required String productId,
+    required String machineId,
+  }) async {
+    final productNum = int.tryParse(productId);
+    final machineNum = int.tryParse(machineId);
+    if (productNum == null || machineNum == null) return 0;
+
+    try {
+      final res = await _dio.get<int>(
+        '/products/$productNum/machine/$machineNum/stock',
+      );
+      return res.data ?? 0;
+    } on DioException {
+      return 0;
+    }
+  }
+
+  @override
+  Future<void> setMachineStock({
+    required String productId,
+    required String machineId,
+    required int stock,
+  }) async {
+    final productNum = int.tryParse(productId);
+    final machineNum = int.tryParse(machineId);
+    if (productNum == null || machineNum == null) return;
+
+    await _dio.put(
+      '/products/$productNum/machine/$machineNum/stock',
+      data: {'stok': stock},
+    );
+  }
 }
 
 final productRepositoryProvider = Provider<ProductRepository>((ref) {
@@ -77,4 +158,13 @@ final productByIdProvider = FutureProvider.family<Product?, String>((
 ) async {
   final repo = ref.read(productRepositoryProvider);
   return repo.getById(id);
+});
+
+/// Provider to get products for a specific machine
+final productsByMachineProvider = FutureProvider.family<List<Product>, String>((
+  ref,
+  machineId,
+) async {
+  final repo = ref.read(productRepositoryProvider);
+  return repo.listByMachine(machineId);
 });

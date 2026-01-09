@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dio/dio.dart';
 import 'package:go_router/go_router.dart';
 
 import '../application/payments_providers.dart';
+import '../../session/application/session_controller.dart';
 import '../../../shared/widgets/money_text.dart';
 import '../../../shared/widgets/rounded_card.dart';
 
@@ -12,21 +14,98 @@ class TransactionHistoryScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
+    final session = ref.watch(sessionControllerProvider);
+    final token = (session.token ?? '').trim();
+
+    // Gate history by token presence (server requires JWT). Do not rely solely
+    // on `isAuthenticated` to avoid false negatives.
+    if (token.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Riwayat')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.lock_outline,
+                  size: 44,
+                  color: scheme.onSurfaceVariant,
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Login untuk melihat riwayat transaksi',
+                  style: Theme.of(context).textTheme.titleMedium,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 14),
+                FilledButton(
+                  onPressed: () => context.go(
+                    '/auth/login?redirect=${Uri.encodeComponent('/app/history')}',
+                  ),
+                  child: const Text('Login'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     final historyAsync = ref.watch(paymentHistoryProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Riwayat')),
       body: historyAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text(
-              'Gagal memuat riwayat.\n$e',
-              textAlign: TextAlign.center,
+        error: (e, _) {
+          final isAuthError =
+              e is DioException &&
+              ((e.response?.statusCode ?? 0) == 401 ||
+                  (e.response?.statusCode ?? 0) == 403);
+
+          if (isAuthError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.lock_outline,
+                      size: 44,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'Akses riwayat ditolak oleh server. Silakan login ulang.',
+                      style: Theme.of(context).textTheme.titleMedium,
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 14),
+                    FilledButton(
+                      onPressed: () => context.go(
+                        '/auth/login?redirect=${Uri.encodeComponent('/app/history')}',
+                      ),
+                      child: const Text('Login ulang'),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                'Gagal memuat riwayat.\n$e',
+                textAlign: TextAlign.center,
+              ),
             ),
-          ),
-        ),
+          );
+        },
         data: (items) {
           if (items.isEmpty) {
             return Center(
@@ -40,15 +119,22 @@ class TransactionHistoryScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    'Belum ada transaksi',
+                    'Anda belum melakukan transaksi',
                     style: Theme.of(context).textTheme.titleMedium,
+                    textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Transaksi berhasil dan tertunda akan muncul di sini.',
+                    'Silakan pilih produk untuk mulai belanja.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,
                     ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 14),
+                  FilledButton(
+                    onPressed: () => context.go('/app/products'),
+                    child: const Text('Lihat produk'),
                   ),
                 ],
               ),

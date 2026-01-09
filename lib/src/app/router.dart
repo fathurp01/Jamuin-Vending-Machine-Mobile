@@ -6,6 +6,8 @@ import '../features/about/presentation/about_screen.dart';
 import '../features/auth/presentation/login_screen.dart';
 import '../features/auth/presentation/register_screen.dart';
 import '../features/admin/presentation/admin_dashboard_screen.dart';
+import '../features/admin/presentation/admin_add_machine_screen.dart';
+import '../features/admin/presentation/admin_machine_stock_screen.dart';
 import '../features/admin/presentation/admin_machines_monitor_screen.dart';
 import '../features/admin/presentation/admin_stock_screen.dart';
 import '../features/admin/presentation/admin_transactions_screen.dart';
@@ -153,6 +155,14 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'monitor',
             builder: (context, state) => const AdminMachinesMonitorScreen(),
+          ),
+          GoRoute(
+            path: 'add-machine',
+            builder: (context, state) => const AdminAddMachineScreen(),
+          ),
+          GoRoute(
+            path: 'machine-stock',
+            builder: (context, state) => const AdminMachineStockScreen(),
           ),
           GoRoute(
             path: 'stock',

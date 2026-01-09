@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../cart/application/cart_controller.dart';
+import '../../map/presentation/machine_providers.dart';
+import '../../session/application/session_controller.dart';
+import '../../inventory/application/inventory_controller.dart';
 import '../data/product_repository.dart';
 import '../../../core/config/backend_config.dart';
 import '../../../shared/widgets/money_text.dart';
@@ -31,6 +34,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final productAsync = ref.watch(productByIdProvider(widget.productId));
+    final session = ref.watch(sessionControllerProvider);
+    final selectedMachineId = session.selectedMachineId;
+    final machinesAsync = ref.watch(machinesProvider);
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
@@ -39,10 +45,79 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         data: (p) {
           if (p == null) return const Center(child: Text('Product not found'));
 
-          final stock = p.stock;
+          if (selectedMachineId != null) {
+            final remote = p.stockForMachine(selectedMachineId);
+            final local = ref.watch(
+              stockForSelectedMachineProvider(widget.productId),
+            );
+            if (remote != local) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (!mounted) return;
+                ref
+                    .read(inventoryControllerProvider.notifier)
+                    .setStock(
+                      machineId: selectedMachineId,
+                      productId: widget.productId,
+                      stock: remote,
+                    );
+              });
+            }
+          }
+
+          // Get stock dari selected machine
+          final stock = selectedMachineId != null
+              ? ref.watch(stockForSelectedMachineProvider(widget.productId))
+              : p.stockForMachine(selectedMachineId ?? '0');
           final isOutOfStock = stock <= 0;
           final maxQty = stock <= 0 ? 1 : stock;
           final imageUrl = _resolveImageUrl(p.image);
+
+          String? lookupMachineName(String machineId) {
+            return machinesAsync.maybeWhen(
+              data: (machines) {
+                for (final m in machines) {
+                  if (m.id == machineId) return m.name;
+                }
+                return null;
+              },
+              orElse: () => null,
+            );
+          }
+
+          final selectedMachineName = (session.selectedMachineName ?? '')
+              .trim();
+          final selectedMachineLabel = selectedMachineId == null
+              ? null
+              : (selectedMachineName.isNotEmpty
+                    ? 'Mesin $selectedMachineName'
+                    : 'Mesin #$selectedMachineId');
+
+          String? recommendedMachineLabel;
+          if (selectedMachineId != null && isOutOfStock) {
+            final selectedMachineIdNum = int.tryParse(selectedMachineId);
+            int? bestMachineId;
+            int bestStock = -1;
+            for (final mp in p.machineProducts) {
+              if (mp.stok <= 0) continue;
+              if (selectedMachineIdNum != null &&
+                  mp.machineId == selectedMachineIdNum) {
+                continue;
+              }
+              if (mp.stok > bestStock) {
+                bestStock = mp.stok;
+                bestMachineId = mp.machineId;
+              }
+            }
+
+            if (bestMachineId != null) {
+              final bestMachineIdStr = bestMachineId.toString();
+              final bestName = (lookupMachineName(bestMachineIdStr) ?? '')
+                  .trim();
+              recommendedMachineLabel = bestName.isNotEmpty
+                  ? 'Mesin $bestName'
+                  : 'Mesin #$bestMachineIdStr';
+            }
+          }
 
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
@@ -99,14 +174,26 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Stok',
+                      selectedMachineId == null
+                          ? 'Stok (pilih mesin terlebih dahulu)'
+                          : 'Stok',
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      isOutOfStock ? 'Stok habis' : 'Stok: $stock',
+                      selectedMachineId == null
+                          ? 'Pilih mesin dari halaman peta'
+                          : isOutOfStock
+                          ? (recommendedMachineLabel == null
+                                ? 'Stok habis'
+                                : 'Stok habis - Stok Tersedia di $recommendedMachineLabel')
+                          : '$stock - $selectedMachineLabel',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: isOutOfStock ? scheme.error : scheme.primary,
+                        color: selectedMachineId == null
+                            ? scheme.onSurfaceVariant
+                            : isOutOfStock
+                            ? scheme.error
+                            : scheme.primary,
                         fontWeight: isOutOfStock
                             ? FontWeight.w800
                             : FontWeight.w700,
@@ -163,10 +250,14 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
           data: (p) {
             if (p == null) return const SizedBox.shrink();
 
-            final isOutOfStock = p.stock <= 0;
+            final stock = selectedMachineId != null
+                ? ref.watch(stockForSelectedMachineProvider(widget.productId))
+                : 0;
+            final isOutOfStock = stock <= 0;
+            final noMachineSelected = selectedMachineId == null;
 
             return FilledButton(
-              onPressed: isOutOfStock
+              onPressed: (isOutOfStock || noMachineSelected)
                   ? null
                   : () {
                       ref
@@ -178,7 +269,11 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                         ),
                       );
                     },
-              child: const Text('Tambah ke keranjang'),
+              child: Text(
+                noMachineSelected
+                    ? 'Pilih mesin terlebih dahulu'
+                    : 'Tambah ke keranjang',
+              ),
             );
           },
           orElse: () => const SizedBox.shrink(),

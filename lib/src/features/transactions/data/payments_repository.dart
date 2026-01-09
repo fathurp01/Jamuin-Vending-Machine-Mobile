@@ -190,18 +190,88 @@ final class ApiPaymentsRepository implements PaymentsRepository {
 
   @override
   Future<PaymentStatusDetail> status(String orderId) async {
-    final res = await _dio.get<Map<String, Object?>>(
-      '/payments/status/$orderId',
-    );
-    final data = res.data ?? const <String, Object?>{};
-    return PaymentStatusDetail.fromJson(data);
+    int toInt(Object? v, {int fallback = 0}) {
+      if (v is int) return v;
+      if (v is num) return v.toInt();
+      if (v is String) return int.tryParse(v.trim()) ?? fallback;
+      return fallback;
+    }
+
+    DateTime? parseDateTime(Object? v) {
+      if (v is String && v.trim().isNotEmpty) return DateTime.tryParse(v);
+      return null;
+    }
+
+    try {
+      final res = await _dio.get<Map<String, Object?>>(
+        '/payments/status/$orderId',
+      );
+      final data = res.data ?? const <String, Object?>{};
+      return PaymentStatusDetail.fromJson(data);
+    } on DioException catch (e) {
+      final status = e.response?.statusCode;
+      final body = e.response?.data;
+
+      String message = e.message ?? '';
+      if (body is Map) {
+        final m = (body['message'] as String?)?.trim();
+        if (m != null && m.isNotEmpty) message = m;
+      }
+
+      final looksLikeMidtrans404 =
+          message.contains('HTTP status code: 404') ||
+          message.contains("Transaction doesn't exist") ||
+          message.contains('Transaction doesn\'t exist');
+
+      // Temporary resilience: some backend deployments still surface Midtrans 404 as HTTP 400.
+      // In that case, fall back to DB transaction data so the status screen can render.
+      if (status == 400 && looksLikeMidtrans404) {
+        final txRes = await _dio.get<Map<String, Object?>>(
+          '/payments/transaction/$orderId',
+        );
+        final tx = txRes.data ?? const <String, Object?>{};
+
+        final productJson =
+            (tx['product'] as Map?)?.cast<String, Object?>() ??
+            const <String, Object?>{};
+        final userJson =
+            (tx['user'] as Map?)?.cast<String, Object?>() ??
+            const <String, Object?>{};
+
+        return PaymentStatusDetail(
+          orderId: (tx['orderId'] as String?) ?? orderId,
+          status: (tx['status'] as String?) ?? 'pending',
+          paymentType: tx['paymentType'] as String?,
+          grossAmount: toInt(tx['grossAmount']),
+          paidAt: parseDateTime(tx['paidAt']),
+          product: Product.fromJson(productJson),
+          customer: PaymentCustomer.fromJson(userJson),
+          midtransStatus: const {
+            'status_code': '404',
+            'status_message': "Transaction doesn't exist.",
+          },
+        );
+      }
+
+      rethrow;
+    }
   }
 
   @override
   Future<List<PaymentHistoryItem>> myHistory() async {
-    final res = await _dio.get<List<dynamic>>('/payments/my-history');
-    final data = res.data ?? const [];
-    return data
+    final res = await _dio.get<dynamic>('/payments/my-history');
+    final body = res.data;
+
+    final List<dynamic> rawList;
+    if (body is List) {
+      rawList = body;
+    } else if (body is Map && body['data'] is List) {
+      rawList = body['data'] as List;
+    } else {
+      rawList = const [];
+    }
+
+    return rawList
         .whereType<Map>()
         .map((e) => PaymentHistoryItem.fromJson(e.cast<String, Object?>()))
         .toList(growable: false);

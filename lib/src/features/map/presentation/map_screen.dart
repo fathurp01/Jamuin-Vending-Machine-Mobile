@@ -10,6 +10,7 @@ import '../../../core/config/public_apis.dart';
 import '../../session/application/session_controller.dart';
 import '../../session/application/session_persistence_providers.dart';
 import '../application/machine_realtime_controller.dart';
+import 'machine_card_overlay.dart';
 import 'machine_models.dart';
 import 'machine_providers.dart';
 
@@ -28,8 +29,16 @@ class MapScreen extends ConsumerStatefulWidget {
 
 class _MapScreenState extends ConsumerState<MapScreen> {
   MapLibreMapController? _controller;
-  final Map<String, VendingMachine> _symbolToMachine = {};
-  bool _symbolsAdded = false;
+  final Map<String, Circle> _machineIdToCoreDot = {};
+  final Map<String, Circle> _machineIdToInnerDot = {};
+  bool _dotsAdded = false;
+
+  // NOTE: Named this way to avoid hot-reload type conflicts from older builds
+  // where `_cameraTick` might have been a different type.
+  ValueNotifier<int>? _cameraTickNotifier;
+  Timer? _cameraTickDebounce;
+
+  VendingMachine? _previewMachine;
 
   StreamSubscription<Position>? _positionSub;
   LatLng? _myLatLng;
@@ -333,14 +342,33 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     super.initState();
     // Start listening early; if permission isn't granted yet, this will just no-op.
     _startLocationStreamIfPossible();
+    _cameraTickNotifier ??= ValueNotifier<int>(0);
   }
 
   @override
   void dispose() {
     _positionSub?.cancel();
     _pulseTimer?.cancel();
+    _cameraTickDebounce?.cancel();
+    _cameraTickNotifier?.dispose();
     _controller?.dispose();
     super.dispose();
+  }
+
+  ValueNotifier<int> get _cameraTick =>
+      _cameraTickNotifier ??= ValueNotifier<int>(0);
+
+  void _scheduleCameraTick() {
+    // Camera move can fire frequently; throttle screen-position updates.
+    _cameraTickDebounce?.cancel();
+    _cameraTickDebounce = Timer(const Duration(milliseconds: 16), () {
+      _cameraTick.value = _cameraTick.value + 1;
+    });
+  }
+
+  void _bumpCameraTickNow() {
+    _cameraTickDebounce?.cancel();
+    _cameraTick.value = _cameraTick.value + 1;
   }
 
   Future<void> _persistSelectedMachine(VendingMachine machine) async {
@@ -358,44 +386,110 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       // User came from cart, return to cart
       context.pop();
       return;
-    } else if (widget.navigateTo == 'products') {
-      // User selected machine first, go to products
-      context.go('/app/products');
-      return;
     }
 
-    // Default: just show snackbar
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('Terpilih: ${machine.name}')));
+    // Always go back to products page after selection (from any source)
+    // This ensures user sees products with selected machine
+    context.go('/app/products');
+
+    // Show snackbar to confirm selection
+    if (mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Terpilih: ${machine.name}')));
+    }
   }
 
-  void _onSymbolTapped(Symbol symbol) {
-    final machine = _symbolToMachine[symbol.id];
-    if (machine == null) return;
-    _persistSelectedMachine(machine);
+  Future<void> _selectMachinePreview(
+    VendingMachine machine, {
+    bool centerMap = true,
+  }) async {
+    final previous = _previewMachine?.id;
+
+    if (mounted) {
+      setState(() {
+        _previewMachine = machine;
+      });
+    }
+
+    // Ensure the panel is visible so the user can confirm selection.
+    if (_isPanelHidden) {
+      final screenHeight = MediaQuery.sizeOf(context).height;
+      final minSheetHeight = (screenHeight * 0.25).clamp(220.0, 340.0);
+      _snapShow(minSheetHeight);
+    }
+
+    await _applySelectionVisuals(previousId: previous, currentId: machine.id);
+
+    final controller = _controller;
+    if (controller != null && centerMap && machine.hasCoordinates) {
+      try {
+        await controller.animateCamera(
+          CameraUpdate.newCameraPosition(
+            CameraPosition(
+              target: LatLng(machine.lat!, machine.lng!),
+              zoom: 16.0,
+            ),
+          ),
+        );
+      } catch (_) {
+        // ignore
+      }
+    }
   }
 
-  Future<void> _addMachineSymbols(List<VendingMachine> machines) async {
+  Future<void> _applySelectionVisuals({
+    required String? previousId,
+    required String? currentId,
+  }) async {
+    // Selection is now handled by card re-renders in the Stack overlay.
+    // No need to update circle/symbol properties here.
+  }
+
+  Future<void> _addMachineDots(List<VendingMachine> machines) async {
     final controller = _controller;
     if (controller == null) return;
-    if (_symbolsAdded) return;
-    _symbolsAdded = true;
+    if (_dotsAdded) return;
+    _dotsAdded = true;
 
-    // Add a symbol per machine and keep a lookup for tap handling.
+    final scheme = Theme.of(context).colorScheme;
+    final primaryHex = _colorToHexRgb(scheme.primary);
+    // We intentionally render a hollow ring (transparent center) to match UX.
+    // Using stroke avoids faking a hole with a solid inner color.
+
+    // Add visible machine dots (stick to map like my-location dot).
     for (final m in machines.where((m) => m.hasCoordinates)) {
-      final symbol = await controller.addSymbol(
-        SymbolOptions(
-          geometry: LatLng(m.lat!, m.lng!),
-          iconImage: 'marker-15',
-          iconSize: 1.3,
-          textField: m.name,
-          textOffset: const Offset(0, 1.2),
-          textSize: 12.0,
+      final ll = LatLng(m.lat!, m.lng!);
+
+      final core = await controller.addCircle(
+        CircleOptions(
+          geometry: ll,
+          circleRadius: 6.0,
+          // Transparent center (hollow)
+          circleColor: primaryHex,
+          circleOpacity: 0.0,
+          circleStrokeColor: primaryHex,
+          circleStrokeOpacity: 1.0,
+          circleStrokeWidth: 2.25,
         ),
       );
-      _symbolToMachine[symbol.id] = m;
+      _machineIdToCoreDot[m.id] = core;
     }
+  }
+
+  Future<void> _handleStyleLoaded(List<VendingMachine> machines) async {
+    // MapLibre clears annotations when style is (re)loaded.
+    // Reset our state so dots/circles are re-created.
+    _machineIdToCoreDot.clear();
+    _machineIdToInnerDot.clear();
+    _dotsAdded = false;
+    _myPulseCircle = null;
+    _myCoreCircle = null;
+    _myInnerCircle = null;
+
+    await _addMachineDots(machines);
+    await _upsertMyLocationCircles();
+    _bumpCameraTickNow();
   }
 
   @override
@@ -548,14 +642,42 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       zoom: 13.2,
                     ),
                     onMapCreated: (c) {
-                      _controller = c;
-                      c.onSymbolTapped.add(_onSymbolTapped);
+                      setState(() {
+                        _controller = c;
+                      });
                       _startLocationStreamIfPossible();
                       _upsertMyLocationCircles();
                       _autoPinpointIfNeeded();
                     },
-                    onStyleLoadedCallback: () =>
-                        _addMachineSymbols(machinesWithCoordinates),
+                    onStyleLoadedCallback: () {
+                      _handleStyleLoaded(machinesWithCoordinates);
+                    },
+                    onCameraMove: (_) => _scheduleCameraTick(),
+                    onCameraIdle: _bumpCameraTickNow,
+                    onMapClick: (_, latLng) {
+                      // Fallback selection: if user taps near a machine dot, select it.
+                      if (machinesWithCoordinates.isEmpty) return;
+                      VendingMachine? nearest;
+                      double bestMeters = double.infinity;
+
+                      for (final m in machinesWithCoordinates) {
+                        final meters = Geolocator.distanceBetween(
+                          latLng.latitude,
+                          latLng.longitude,
+                          m.lat!,
+                          m.lng!,
+                        );
+                        if (meters < bestMeters) {
+                          bestMeters = meters;
+                          nearest = m;
+                        }
+                      }
+
+                      // Threshold so random taps don't select a machine.
+                      if (nearest != null && bestMeters <= 60) {
+                        _selectMachinePreview(nearest);
+                      }
+                    },
                     // We render our own pulsing dot to match app theme.
                     myLocationEnabled: false,
                     myLocationTrackingMode: MyLocationTrackingMode.none,
@@ -563,6 +685,19 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     rotateGesturesEnabled: true,
                     tiltGesturesEnabled: false,
                   ),
+
+                  // Machine overlay cards above the map, but behind the bottom panel.
+                  ...machinesWithCoordinates.map((machine) {
+                    return MachineCardOverlay(
+                      key: ValueKey(machine.id),
+                      machine: machine,
+                      controller: _controller,
+                      cameraTickListenable: _cameraTick,
+                      isSelected: _previewMachine?.id == machine.id,
+                      onTap: () =>
+                          _selectMachinePreview(machine, centerMap: false),
+                    );
+                  }),
 
                   // Pinpoint/recenter button (top-right of map area, above the bottom panel)
                   Positioned(
@@ -706,6 +841,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                                   const SizedBox(height: 8),
                               itemBuilder: (context, index) {
                                 final m = machines[index];
+                                final isSelected = _previewMachine?.id == m.id;
                                 final numericId = int.tryParse(m.id);
                                 final live = numericId == null
                                     ? null
@@ -733,11 +869,14 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
                                 return InkWell(
                                   borderRadius: BorderRadius.circular(16),
-                                  onTap: () => _persistSelectedMachine(m),
+                                  onTap: () => _selectMachinePreview(m),
                                   child: Container(
                                     padding: const EdgeInsets.all(12),
                                     decoration: BoxDecoration(
-                                      color: scheme.surfaceContainerHighest,
+                                      // Selected row becomes grey (abu) to indicate preview.
+                                      color: isSelected
+                                          ? scheme.surfaceVariant
+                                          : scheme.surfaceContainerHighest,
                                       borderRadius: BorderRadius.circular(16),
                                     ),
                                     child: Row(
@@ -746,16 +885,22 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                                           width: 40,
                                           height: 40,
                                           decoration: BoxDecoration(
-                                            color: scheme.primary.withValues(
-                                              alpha: 0.12,
-                                            ),
+                                            color: isSelected
+                                                ? scheme.onSurface.withValues(
+                                                    alpha: 0.08,
+                                                  )
+                                                : scheme.primary.withValues(
+                                                    alpha: 0.12,
+                                                  ),
                                             borderRadius: BorderRadius.circular(
                                               10,
                                             ),
                                           ),
                                           child: Icon(
                                             Icons.store,
-                                            color: scheme.primary,
+                                            color: isSelected
+                                                ? scheme.onSurfaceVariant
+                                                : scheme.primary,
                                             size: 20,
                                           ),
                                         ),
@@ -821,6 +966,61 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       ),
                     ),
                   ),
+
+                  // Bottom action bar when machine is selected
+                  if (_previewMachine != null)
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      // Overlay in front of the bottom panel, fixed to the bottom of screen.
+                      bottom: 0,
+                      child: SafeArea(
+                        top: false,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: () =>
+                                      _persistSelectedMachine(_previewMachine!),
+                                  style: ElevatedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
+                                    backgroundColor: scheme.primaryContainer,
+                                    foregroundColor: scheme.onPrimaryContainer,
+                                  ),
+                                  icon: const Icon(
+                                    Icons.check_circle_outline,
+                                    size: 20,
+                                  ),
+                                  label: const Text('Pilih mesin'),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              OutlinedButton.icon(
+                                onPressed: () {
+                                  if (mounted) {
+                                    setState(() {
+                                      _previewMachine = null;
+                                    });
+                                  }
+                                },
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 14,
+                                    horizontal: 20,
+                                  ),
+                                ),
+                                icon: const Icon(Icons.close, size: 19),
+                                label: const Text('Batal'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
 
                   // Floating button to toggle list when hidden
                   if (_isPanelHidden)

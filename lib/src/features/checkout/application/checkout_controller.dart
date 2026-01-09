@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../cart/application/cart_controller.dart';
 import '../../session/application/session_controller.dart';
+import '../../inventory/application/inventory_controller.dart';
+import '../../map/presentation/machine_providers.dart';
 import '../../transactions/application/payments_providers.dart';
 import '../../transactions/domain/transaction_record.dart';
 import '../domain/payment_flow.dart';
@@ -51,17 +53,40 @@ class CheckoutController extends Notifier<String?> {
       return PlaceOrderResult.failure('ID mesin vending tidak valid.');
     }
 
+    // Backend requires machine status to be ONLINE. Re-check at checkout time
+    // because machine can go offline after user selects it.
+    try {
+      final onlineMachines = await ref.read(machinesProvider.future);
+      final isOnline = onlineMachines.any((m) => m.id == machineId);
+      if (!isOnline) {
+        return PlaceOrderResult.failure(
+          'Mesin $machineName sedang tidak online. Silakan pilih mesin lain.',
+        );
+      }
+    } catch (_) {
+      return PlaceOrderResult.failure(
+        'Gagal memeriksa status mesin. Coba lagi.',
+      );
+    }
+
     try {
       final repo = ref.read(paymentsRepositoryProvider);
+      final inventory = ref.read(inventoryControllerProvider.notifier);
       final steps = <PaymentStep>[];
       for (final item in cart.items.values) {
         final productId = int.tryParse(item.product.id);
         if (productId == null) {
           return PlaceOrderResult.failure('ID produk tidak valid.');
         }
-        if (item.quantity > item.product.stock) {
+
+        // Check stock dari inventory per-machine
+        final stock = inventory.stockFor(
+          machineId: machineId,
+          productId: item.product.id,
+        );
+        if (item.quantity > stock) {
           return PlaceOrderResult.failure(
-            'Stok tidak mencukupi untuk produk ini.',
+            'Stok tidak mencukupi untuk ${item.product.name}.',
           );
         }
 
