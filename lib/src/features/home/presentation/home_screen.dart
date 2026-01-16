@@ -9,6 +9,43 @@ import '../../session/application/session_persistence_providers.dart';
 import '../../../shared/widgets/rounded_card.dart';
 import '../../../shared/widgets/section_header.dart';
 import '../../../shared/widgets/money_text.dart';
+import '../../../core/config/backend_config.dart';
+
+String? _resolveImageUrl(String? raw) {
+  if (raw == null || raw.trim().isEmpty) return null;
+  final v = raw.trim();
+  if (v.startsWith('http://') || v.startsWith('https://')) return v;
+  return '${BackendConfig.baseUrl}/$v';
+}
+
+Widget _buildProductImage(String? imageUrl, Color primaryColor) {
+  final url = _resolveImageUrl(imageUrl);
+  if (url == null) {
+    return Icon(
+      Icons.local_cafe_outlined,
+      color: primaryColor,
+      size: 64,
+    );
+  }
+  return LayoutBuilder(
+    builder: (context, constraints) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Image.network(
+          url,
+          width: constraints.maxWidth,
+          height: constraints.maxHeight,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => Icon(
+            Icons.local_cafe_outlined,
+            color: primaryColor,
+            size: 64,
+          ),
+        ),
+      );
+    },
+  );
+}
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -174,7 +211,7 @@ class HomeScreen extends ConsumerWidget {
                 final products = ref.watch(productListProvider);
                 return products.when(
                   data: (items) => SizedBox(
-                    height: 156,
+                    height: 240,
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
                       itemCount: items.length,
@@ -182,7 +219,7 @@ class HomeScreen extends ConsumerWidget {
                       itemBuilder: (context, index) {
                         final p = items[index];
                         return SizedBox(
-                          width: 220,
+                          width: 180,
                           child: InkWell(
                             borderRadius: BorderRadius.circular(20),
                             onTap: () => context.push('/app/products/${p.id}'),
@@ -190,31 +227,33 @@ class HomeScreen extends ConsumerWidget {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Expanded(
-                                    child: Container(
-                                      width: double.infinity,
-                                      decoration: BoxDecoration(
-                                        color: scheme.primary.withValues(
-                                          alpha: 0.10,
-                                        ),
-                                        borderRadius: BorderRadius.circular(16),
+                                  Container(
+                                    height: 120,
+                                    width: double.infinity,
+                                    decoration: BoxDecoration(
+                                      color: scheme.primary.withValues(
+                                        alpha: 0.10,
                                       ),
-                                      alignment: Alignment.center,
-                                      child: Icon(
-                                        Icons.local_cafe_outlined,
-                                        color: scheme.primary,
-                                        size: 36,
-                                      ),
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    clipBehavior: Clip.antiAlias,
+                                    child: _buildProductImage(
+                                      p.image,
+                                      scheme.primary,
                                     ),
                                   ),
                                   const SizedBox(height: 10),
                                   Text(
                                     p.name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                     style: Theme.of(
                                       context,
-                                    ).textTheme.titleMedium,
+                                    ).textTheme.titleSmall?.copyWith(
+                                      fontWeight: FontWeight.w900,
+                                    ),
                                   ),
-                                  const SizedBox(height: 2),
+                                  const SizedBox(height: 4),
                                   Text(
                                     p.benefits,
                                     maxLines: 1,
@@ -224,22 +263,25 @@ class HomeScreen extends ConsumerWidget {
                                           color: scheme.onSurface.withOpacity(0.7),
                                         ),
                                   ),
-                                  const SizedBox(height: 8),
+                                  const Spacer(),
                                   Row(
                                     children: [
-                                      MoneyText(
-                                        p.price,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .titleSmall
-                                            ?.copyWith(
-                                              fontWeight: FontWeight.w800,
-                                            ),
+                                      Expanded(
+                                        child: MoneyText(
+                                          p.price,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleSmall
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.w800,
+                                                color: scheme.primary,
+                                              ),
+                                        ),
                                       ),
-                                      const Spacer(),
                                       Icon(
-                                        Icons.chevron_right,
-                                        color: scheme.onSurface.withOpacity(0.5),
+                                        Icons.arrow_forward,
+                                        color: scheme.primary,
+                                        size: 18,
                                       ),
                                     ],
                                   ),

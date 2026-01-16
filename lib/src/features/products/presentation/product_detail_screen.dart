@@ -135,7 +135,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                       ? Icon(
                           Icons.local_drink_outlined,
                           color: scheme.primary,
-                          size: 54,
+                          size: 80,
                         )
                       : ClipRRect(
                           borderRadius: BorderRadius.circular(20),
@@ -147,7 +147,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                             errorBuilder: (_, __, ___) => Icon(
                               Icons.local_drink_outlined,
                               color: scheme.primary,
-                              size: 54,
+                              size: 80,
                             ),
                           ),
                         ),

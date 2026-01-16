@@ -28,10 +28,20 @@ final class ApiMachinesRepository implements MachinesRepository {
     final res = await _dio.get<List<dynamic>>('/machines/online');
     final data = res.data ?? const [];
 
-    return data
+    print('🗺️ Backend response for /machines/online:');
+    print('   Total machines: ${data.length}');
+    
+    final machines = data
         .whereType<Map>()
-        .map((e) => VendingMachine.fromJson(e.cast<String, Object?>()))
+        .map((e) {
+          final json = e.cast<String, Object?>();
+          print('   Machine: ${json['name']} - lat: ${json['latitude']}, lng: ${json['longitude']}');
+          return VendingMachine.fromJson(json);
+        })
         .toList(growable: false);
+    
+    print('   Machines with coordinates: ${machines.where((m) => m.hasCoordinates).length}');
+    return machines;
   }
 
   @override

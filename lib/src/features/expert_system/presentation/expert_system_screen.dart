@@ -4,6 +4,15 @@ import 'package:go_router/go_router.dart';
 
 import '../../../shared/widgets/rounded_card.dart';
 import '../application/expert_system_controller.dart';
+import '../../../core/config/backend_config.dart';
+import '../../products/data/product_repository.dart';
+
+String? _resolveImageUrl(String? raw) {
+  if (raw == null || raw.trim().isEmpty) return null;
+  final v = raw.trim();
+  if (v.startsWith('http://') || v.startsWith('https://')) return v;
+  return '${BackendConfig.baseUrl}/$v';
+}
 
 class ExpertSystemScreen extends ConsumerWidget {
   const ExpertSystemScreen({super.key});
@@ -133,6 +142,62 @@ class ExpertSystemScreen extends ConsumerWidget {
                       ),
                     ],
                   ),
+                ),
+                const SizedBox(height: 12),
+                // Product Image Container
+                Consumer(
+                  builder: (context, ref, _) {
+                    final productAsync = ref.watch(
+                      productByIdProvider(recommendation.productId.toString()),
+                    );
+                    return productAsync.when(
+                      data: (product) {
+                        if (product == null) return const SizedBox.shrink();
+                        final imageUrl = _resolveImageUrl(product.image);
+                        return RoundedCard(
+                          padding: const EdgeInsets.all(0),
+                          child: Container(
+                            height: 200,
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              color: scheme.primary.withValues(alpha: 0.10),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            clipBehavior: Clip.antiAlias,
+                            child: imageUrl == null
+                                ? Center(
+                                    child: Icon(
+                                      Icons.local_drink_outlined,
+                                      color: scheme.primary,
+                                      size: 80,
+                                    ),
+                                  )
+                                : Image.network(
+                                    imageUrl,
+                                    width: double.infinity,
+                                    height: 200,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => Center(
+                                      child: Icon(
+                                        Icons.local_drink_outlined,
+                                        color: scheme.primary,
+                                        size: 80,
+                                      ),
+                                    ),
+                                  ),
+                          ),
+                        );
+                      },
+                      loading: () => RoundedCard(
+                        child: Container(
+                          height: 200,
+                          alignment: Alignment.center,
+                          child: const CircularProgressIndicator(),
+                        ),
+                      ),
+                      error: (_, __) => const SizedBox.shrink(),
+                    );
+                  },
                 ),
                 const SizedBox(height: 12),
                 RoundedCard(

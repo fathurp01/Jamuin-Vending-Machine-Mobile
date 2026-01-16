@@ -18,11 +18,24 @@ class CreatePaymentResult {
   final Product product;
 
   factory CreatePaymentResult.fromJson(Map<String, Object?> json) {
+    int toInt(Object? value, {int fallback = 0}) {
+      if (value == null) return fallback;
+      if (value is int) return value;
+      if (value is num) return value.toInt();
+      if (value is String) {
+        final parsed = int.tryParse(value);
+        if (parsed != null) return parsed;
+        final parsedDouble = double.tryParse(value);
+        if (parsedDouble != null) return parsedDouble.toInt();
+      }
+      return fallback;
+    }
+
     return CreatePaymentResult(
       orderId: (json['orderId'] as String?) ?? '',
       snapToken: (json['snapToken'] as String?) ?? '',
       snapUrl: (json['snapUrl'] as String?) ?? '',
-      grossAmount: ((json['grossAmount'] as num?) ?? 0).toInt(),
+      grossAmount: toInt(json['grossAmount']),
       product: Product.fromJson(
         (json['product'] as Map).cast<String, Object?>(),
       ),
@@ -72,6 +85,20 @@ class PaymentStatusDetail {
   final Map<String, Object?> midtransStatus;
 
   factory PaymentStatusDetail.fromJson(Map<String, Object?> json) {
+    // Helper to safely parse int from String or num
+    int toInt(Object? value, {int fallback = 0}) {
+      if (value == null) return fallback;
+      if (value is int) return value;
+      if (value is num) return value.toInt();
+      if (value is String) {
+        final parsed = int.tryParse(value);
+        if (parsed != null) return parsed;
+        final parsedDouble = double.tryParse(value);
+        if (parsedDouble != null) return parsedDouble.toInt();
+      }
+      return fallback;
+    }
+
     final paidAtRaw = json['paidAt'];
     DateTime? paidAt;
     if (paidAtRaw is String && paidAtRaw.trim().isNotEmpty) {
@@ -82,7 +109,7 @@ class PaymentStatusDetail {
       orderId: (json['orderId'] as String?) ?? '',
       status: (json['status'] as String?) ?? 'pending',
       paymentType: json['paymentType'] as String?,
-      grossAmount: ((json['grossAmount'] as num?) ?? 0).toInt(),
+      grossAmount: toInt(json['grossAmount']),
       paidAt: paidAt,
       product: Product.fromJson(
         (json['product'] as Map).cast<String, Object?>(),

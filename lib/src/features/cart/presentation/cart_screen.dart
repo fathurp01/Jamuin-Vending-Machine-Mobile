@@ -8,6 +8,14 @@ import '../application/cart_controller.dart';
 import '../../../shared/widgets/money_text.dart';
 import '../../../shared/widgets/quantity_stepper.dart';
 import '../../../shared/widgets/rounded_card.dart';
+import '../../../core/config/backend_config.dart';
+
+String? _resolveImageUrl(String? raw) {
+  if (raw == null || raw.trim().isEmpty) return null;
+  final v = raw.trim();
+  if (v.startsWith('http://') || v.startsWith('https://')) return v;
+  return '${BackendConfig.baseUrl}/$v';
+}
 
 class CartScreen extends ConsumerWidget {
   const CartScreen({super.key});
@@ -165,10 +173,26 @@ class CartScreen extends ConsumerWidget {
                                   color: scheme.primary.withValues(alpha: 0.10),
                                   borderRadius: BorderRadius.circular(16),
                                 ),
-                                child: Icon(
-                                  Icons.local_cafe_outlined,
-                                  color: scheme.primary,
-                                ),
+                                clipBehavior: Clip.antiAlias,
+                                child: () {
+                                  final url = _resolveImageUrl(item.product.image);
+                                  if (url == null) {
+                                    return Icon(
+                                      Icons.local_cafe_outlined,
+                                      color: scheme.primary,
+                                    );
+                                  }
+                                  return Image.network(
+                                    url,
+                                    width: 52,
+                                    height: 52,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => Icon(
+                                      Icons.local_cafe_outlined,
+                                      color: scheme.primary,
+                                    ),
+                                  );
+                                }(),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
