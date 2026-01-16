@@ -31,14 +31,22 @@ class PlaceOrderResult {
 class CheckoutController extends Notifier<String?> {
   @override
   String? build() => null;
-
-  Future<PlaceOrderResult> placeOrder({required CustomerInfo customer}) async {
+      
+  Future<PlaceOrderResult> placeOrder() async {
     final cart = ref.read(cartControllerProvider);
     if (cart.subtotal == 0) {
       return PlaceOrderResult.failure('Keranjang masih kosong.');
     }
 
     final session = ref.read(sessionControllerProvider);
+    
+    // Check if user is authenticated
+    if (!session.isAuthenticated) {
+      return PlaceOrderResult.failure(
+        'Silakan login terlebih dahulu untuk melakukan transaksi.',
+      );
+    }
+    
     final machineId = session.selectedMachineId;
     final machineName = session.selectedMachineName;
 

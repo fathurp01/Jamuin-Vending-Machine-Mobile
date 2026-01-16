@@ -6,7 +6,6 @@ import '../../cart/application/cart_controller.dart';
 import '../../session/application/session_controller.dart';
 import '../../inventory/application/inventory_controller.dart';
 import '../application/checkout_controller.dart';
-import '../../transactions/domain/transaction_record.dart';
 import '../domain/payment_flow.dart';
 import '../../../shared/widgets/money_text.dart';
 import '../../../shared/widgets/rounded_card.dart';
@@ -20,27 +19,12 @@ class CheckoutScreen extends ConsumerStatefulWidget {
 
 class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nameCtrl = TextEditingController();
-  final _emailCtrl = TextEditingController();
-  final _phoneCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
 
   bool _placing = false;
 
   @override
-  void initState() {
-    super.initState();
-    final session = ref.read(sessionControllerProvider);
-    _nameCtrl.text = (session.displayName ?? '').trim();
-    _emailCtrl.text = (session.email ?? '').trim();
-    _phoneCtrl.text = (session.phone ?? '').trim();
-  }
-
-  @override
   void dispose() {
-    _nameCtrl.dispose();
-    _emailCtrl.dispose();
-    _phoneCtrl.dispose();
     _notesCtrl.dispose();
     super.dispose();
   }
@@ -113,79 +97,125 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            RoundedCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Data pelanggan',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 10),
-                  TextFormField(
-                    controller: _nameCtrl,
-                    textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(
-                      labelText: 'Nama',
-                      prefixIcon: Icon(Icons.person_outline),
+            if (!session.isAuthenticated)
+              RoundedCard(
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.lock_outline,
+                      size: 48,
+                      color: scheme.primary,
                     ),
-                    validator: (v) {
-                      final value = (v ?? '').trim();
-                      if (value.isEmpty) return 'Nama wajib diisi';
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _emailCtrl,
-                    keyboardType: TextInputType.emailAddress,
-                    textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(
-                      labelText: 'Email',
-                      prefixIcon: Icon(Icons.email_outlined),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Login diperlukan',
+                      style: Theme.of(context).textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.bold),
                     ),
-                    validator: (v) {
-                      final value = (v ?? '').trim();
-                      if (value.isEmpty) return 'Email wajib diisi';
-                      final emailOk = RegExp(
-                        r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
-                      ).hasMatch(value);
-                      if (!emailOk) return 'Masukkan email yang valid';
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _phoneCtrl,
-                    keyboardType: TextInputType.phone,
-                    textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(
-                      labelText: 'Telepon',
-                      prefixIcon: Icon(Icons.phone_outlined),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Silakan login terlebih dahulu untuk melakukan transaksi',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodySmall
+                          ?.copyWith(color: scheme.onSurface.withOpacity(0.7)),
                     ),
-                    validator: (v) {
-                      final value = (v ?? '').trim();
-                      if (value.isEmpty) return 'Telepon wajib diisi';
-                      final digitsOnly = RegExp(r'^\+?[0-9]{8,15}$');
-                      if (!digitsOnly.hasMatch(value)) {
-                        return 'Masukkan nomor telepon yang valid';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _notesCtrl,
-                    maxLines: 2,
-                    textInputAction: TextInputAction.done,
-                    decoration: const InputDecoration(
-                      labelText: 'Catatan (opsional)',
-                      prefixIcon: Icon(Icons.sticky_note_2_outlined),
+                    const SizedBox(height: 16),
+                    FilledButton.icon(
+                      onPressed: () => context.go('/auth/login'),
+                      icon: const Icon(Icons.login),
+                      label: const Text('Login'),
                     ),
-                  ),
-                ],
+                  ],
+                ),
+              )
+            else
+              RoundedCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Data pelanggan',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Icon(Icons.person_outline, color: scheme.primary),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Nama',
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(color: scheme.onSurface.withOpacity(0.7)),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                session.displayName ?? '-',
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(fontWeight: FontWeight.w600),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Icon(Icons.email_outlined, color: scheme.primary),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Email',
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(color: scheme.onSurface.withOpacity(0.7)),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                session.email ?? '-',
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(fontWeight: FontWeight.w600),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Icon(Icons.phone_outlined, color: scheme.primary),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Telepon',
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(color: scheme.onSurface.withOpacity(0.7)),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                session.phone ?? '-',
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(fontWeight: FontWeight.w600),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+
+                  ],
+                ),
               ),
-            ),
             const SizedBox(height: 12),
             if (hasSelectedMachine && !stockOk)
               Padding(
@@ -234,10 +264,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   ),
                   const Divider(height: 22),
                   _Line(label: 'Subtotal', value: cart.subtotal),
-                  const SizedBox(height: 8),
-                  _Line(label: 'Biaya layanan', value: cart.serviceFee),
-                  const SizedBox(height: 8),
-                  _Line(label: 'Pajak (11%)', value: cart.tax),
                   const Divider(height: 22),
                   Row(
                     children: [
@@ -287,7 +313,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                         Text(
                           'Midtrans Snap (WebView)',
                           style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: scheme.onSurfaceVariant),
+                              ?.copyWith(color: scheme.onSurface.withOpacity(0.7)),
                         ),
                       ],
                     ),
@@ -300,7 +326,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               'Setelah menyelesaikan pembayaran, tekan “Cek status”.',
               style: Theme.of(
                 context,
-              ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+              ).textTheme.bodySmall?.copyWith(color: scheme.onSurface.withOpacity(0.7)),
             ),
           ],
         ),
@@ -310,6 +336,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
         child: FilledButton(
           onPressed:
               (_placing ||
+                  !session.isAuthenticated ||
                   !hasSelectedMachine ||
                   cart.subtotal == 0 ||
                   !stockOk)
@@ -317,6 +344,18 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               : () async {
                   final messenger = ScaffoldMessenger.of(context);
                   final router = GoRouter.of(context);
+
+                  if (!session.isAuthenticated) {
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Silakan login terlebih dahulu.',
+                        ),
+                      ),
+                    );
+                    context.go('/auth/login');
+                    return;
+                  }
 
                   if (!_formKey.currentState!.validate()) return;
 
@@ -334,15 +373,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   setState(() => _placing = true);
                   final result = await ref
                       .read(checkoutControllerProvider.notifier)
-                      .placeOrder(
-                        customer: CustomerInfo(
-                          name: _nameCtrl.text.trim(),
-                          phone: _phoneCtrl.text.trim(),
-                          notes: _notesCtrl.text.trim().isEmpty
-                              ? null
-                              : _notesCtrl.text.trim(),
-                        ),
-                      );
+                      .placeOrder();
                   if (!mounted) return;
                   setState(() => _placing = false);
 
@@ -395,14 +426,14 @@ class _Line extends StatelessWidget {
           label,
           style: Theme.of(
             context,
-          ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+          ).textTheme.bodySmall?.copyWith(color: scheme.onSurface.withOpacity(0.7)),
         ),
         const Spacer(),
         MoneyText(
           value,
           style: Theme.of(
             context,
-          ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+          ).textTheme.bodySmall?.copyWith(color: scheme.onSurface.withOpacity(0.7)),
         ),
       ],
     );

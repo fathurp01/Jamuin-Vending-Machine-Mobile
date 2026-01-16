@@ -123,6 +123,15 @@ final _adminSalesMetricsProvider = FutureProvider<_SalesMetrics>((ref) async {
       _DailyRevenuePoint(day: d, revenue: revenueByDay[d] ?? 0),
   ];
 
+  print('📊 Revenue Graph Data:');
+  print('   Total transactions: ${data.length}');
+  print('   Today orders: $todayOrders');
+  print('   Today revenue: Rp $todayRevenue');
+  print('   Last 7 days data points: ${points.length}');
+  for (final p in points) {
+    print('   ${p.day.toString().substring(0, 10)}: Rp ${p.revenue}');
+  }
+
   return _SalesMetrics(
     todayOrders: todayOrders,
     todayRevenue: todayRevenue,
@@ -305,21 +314,43 @@ class AdminDashboardScreen extends ConsumerWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Grafik revenue (7 hari)',
-                            style: Theme.of(context).textTheme.titleMedium,
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  'Grafik revenue (7 hari)',
+                                  style: Theme.of(context).textTheme.titleMedium,
+                                ),
+                              ),
+                              if (salesAsync.isLoading)
+                                const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              else if (salesAsync.hasError)
+                                Icon(Icons.error_outline, size: 16, color: scheme.error),
+                            ],
                           ),
                           const SizedBox(height: 10),
-                          if (series == null)
+                          if (salesAsync.isLoading)
+                            const Text('Loading...')
+                          else if (salesAsync.hasError)
                             Text(
-                              '—',
+                              'Error: ${salesAsync.error}',
                               style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(color: scheme.onSurfaceVariant),
+                                  ?.copyWith(color: scheme.error),
                             )
-                          else
+                          else if (series != null && series.isNotEmpty)
                             _RevenueBarChart(
                               points: series,
                               formatValue: fmtRp,
+                            )
+                          else
+                            Text(
+                              'Tidak ada data',
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(color: scheme.onSurfaceVariant),
                             ),
                         ],
                       ),
@@ -381,7 +412,7 @@ class AdminDashboardScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 8),
                       OutlinedButton(
-                        onPressed: () => context.go('/app/about'),
+                        onPressed: () => context.push('/app/about'),
                         child: const Text('About'),
                       ),
                     ],
@@ -465,6 +496,10 @@ class _RevenueBarChart extends StatelessWidget {
       return prev;
     });
 
+    print('📊 _RevenueBarChart rendering:');
+    print('   Points count: ${points.length}');
+    print('   Max value: Rp $maxValue');
+
     // Fixed chart height to keep layout stable.
     const chartHeight = 120.0;
 
@@ -478,27 +513,21 @@ class _RevenueBarChart extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Chart Area
         SizedBox(
           height: chartHeight,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              for (final p in points)
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 3),
-                    child: _RevenueBar(
-                      value: p.revenue,
-                      maxValue: maxValue,
-                      color: scheme.primary,
-                      background: scheme.surfaceContainerHighest,
-                    ),
-                  ),
-                ),
-            ],
+          width: double.infinity,
+          child: CustomPaint(
+            painter: _LineChartPainter(
+              points: points,
+              maxValue: maxValue,
+              color: scheme.primary,
+              surfaceColor: scheme.surface,
+            ),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
+        // X-Axis Labels
         Row(
           children: [
             for (final p in points)
@@ -507,8 +536,9 @@ class _RevenueBarChart extends StatelessWidget {
                   fmtDay(p.day),
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
+                        color: scheme.onSurfaceVariant,
+                        fontSize: 10,
+                      ),
                 ),
               ),
           ],
@@ -527,38 +557,104 @@ class _RevenueBarChart extends StatelessWidget {
   }
 }
 
-class _RevenueBar extends StatelessWidget {
-  const _RevenueBar({
-    required this.value,
+class _LineChartPainter extends CustomPainter {
+  _LineChartPainter({
+    required this.points,
     required this.maxValue,
     required this.color,
-    required this.background,
+    required this.surfaceColor,
   });
 
-  final int value;
+  final List<_DailyRevenuePoint> points;
   final int maxValue;
   final Color color;
-  final Color background;
+  final Color surfaceColor;
 
   @override
-  Widget build(BuildContext context) {
-    final t = maxValue <= 0 ? 0.0 : (value / maxValue).clamp(0.0, 1.0);
+  void paint(Canvas canvas, Size size) {
+    if (points.isEmpty) return;
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(10),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          ColoredBox(color: background),
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: FractionallySizedBox(
-              heightFactor: t,
-              child: ColoredBox(color: color.withValues(alpha: 0.75)),
-            ),
-          ),
+    final effectiveMax = maxValue <= 0 ? 1 : maxValue;
+    final columnWidth = size.width / points.length;
+
+    // Configuration
+    final linePaint = Paint()
+      ..color = color
+      ..strokeWidth = 3.0
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    final fillPaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          color.withValues(alpha: 0.25),
+          color.withValues(alpha: 0.0),
         ],
-      ),
-    );
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height))
+      ..style = PaintingStyle.fill;
+
+    final dotPaintFill = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+    
+    final dotPaintBorder = Paint()
+      ..color = surfaceColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
+
+    final path = Path();
+    final fillPath = Path();
+
+    // Calculate Coordinates
+    final List<Offset> coordinates = [];
+    
+    for (int i = 0; i < points.length; i++) {
+      final p = points[i];
+      // Center X in the column
+      final x = (i * columnWidth) + (columnWidth / 2);
+      
+      // Map revenue to height (leaving 15% top padding for aesthetics)
+      final t = (p.revenue / effectiveMax).clamp(0.0, 1.0);
+      final y = size.height - (t * (size.height * 0.85));
+
+      coordinates.add(Offset(x, y));
+    }
+
+    // Build Paths
+    if (coordinates.isNotEmpty) {
+      path.moveTo(coordinates.first.dx, coordinates.first.dy);
+      fillPath.moveTo(coordinates.first.dx, size.height); // Start bottom-left
+      fillPath.lineTo(coordinates.first.dx, coordinates.first.dy);
+
+      for (int i = 1; i < coordinates.length; i++) {
+        // Curve smoothing (Simple cubic bezier or just straight lines for time series)
+        // Using straight lines for accuracy in this context, or simple smoothing could be added.
+        // Let's use straightforward Lineto for clear data points.
+        path.lineTo(coordinates[i].dx, coordinates[i].dy);
+        fillPath.lineTo(coordinates[i].dx, coordinates[i].dy);
+      }
+      
+      fillPath.lineTo(coordinates.last.dx, size.height); // Bottom-right
+      fillPath.close();
+    }
+
+    // Draw
+    canvas.drawPath(fillPath, fillPaint);
+    canvas.drawPath(path, linePaint);
+
+    // Draw Dots
+    for (final c in coordinates) {
+      canvas.drawCircle(c, 5, Paint()..color = surfaceColor); // Eraser/Background
+      canvas.drawCircle(c, 4, dotPaintFill);
+      canvas.drawCircle(c, 4, dotPaintBorder); // Ring effect
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _LineChartPainter oldDelegate) {
+    return oldDelegate.points != points || oldDelegate.color != color;
   }
 }

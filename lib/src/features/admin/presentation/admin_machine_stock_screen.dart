@@ -116,6 +116,7 @@ class _AdminMachineStockScreenState
 
                     return DropdownButtonFormField<String>(
                       value: _selectedMachineId,
+                      isExpanded: true,
                       hint: const Text('Pilih mesin...'),
                       items: items,
                       onChanged: (v) {

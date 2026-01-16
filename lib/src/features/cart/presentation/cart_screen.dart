@@ -8,6 +8,14 @@ import '../application/cart_controller.dart';
 import '../../../shared/widgets/money_text.dart';
 import '../../../shared/widgets/quantity_stepper.dart';
 import '../../../shared/widgets/rounded_card.dart';
+import '../../../core/config/backend_config.dart';
+
+String? _resolveImageUrl(String? raw) {
+  if (raw == null || raw.trim().isEmpty) return null;
+  final v = raw.trim();
+  if (v.startsWith('http://') || v.startsWith('https://')) return v;
+  return '${BackendConfig.baseUrl}/$v';
+}
 
 class CartScreen extends ConsumerWidget {
   const CartScreen({super.key});
@@ -165,10 +173,26 @@ class CartScreen extends ConsumerWidget {
                                   color: scheme.primary.withValues(alpha: 0.10),
                                   borderRadius: BorderRadius.circular(16),
                                 ),
-                                child: Icon(
-                                  Icons.local_cafe_outlined,
-                                  color: scheme.primary,
-                                ),
+                                clipBehavior: Clip.antiAlias,
+                                child: () {
+                                  final url = _resolveImageUrl(item.product.image);
+                                  if (url == null) {
+                                    return Icon(
+                                      Icons.local_cafe_outlined,
+                                      color: scheme.primary,
+                                    );
+                                  }
+                                  return Image.network(
+                                    url,
+                                    width: 52,
+                                    height: 52,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => Icon(
+                                      Icons.local_cafe_outlined,
+                                      color: scheme.primary,
+                                    ),
+                                  );
+                                }(),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
@@ -300,10 +324,6 @@ class CartScreen extends ConsumerWidget {
                   child: Column(
                     children: [
                       _Line(label: 'Subtotal', value: cart.subtotal),
-                      const SizedBox(height: 8),
-                      _Line(label: 'Biaya layanan', value: cart.serviceFee),
-                      const SizedBox(height: 8),
-                      _Line(label: 'Pajak (11%)', value: cart.tax),
                       const Divider(height: 22),
                       Row(
                         children: [
@@ -364,14 +384,14 @@ class _Line extends StatelessWidget {
           label,
           style: Theme.of(
             context,
-          ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+          ).textTheme.bodySmall?.copyWith(color: scheme.onSurface.withOpacity(0.7)),
         ),
         const Spacer(),
         MoneyText(
           value,
           style: Theme.of(
             context,
-          ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+          ).textTheme.bodySmall?.copyWith(color: scheme.onSurface.withOpacity(0.7)),
         ),
       ],
     );

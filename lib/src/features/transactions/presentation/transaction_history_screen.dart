@@ -31,7 +31,7 @@ class TransactionHistoryScreen extends ConsumerWidget {
                 Icon(
                   Icons.lock_outline,
                   size: 44,
-                  color: scheme.onSurfaceVariant,
+                  color: scheme.onSurface.withOpacity(0.5),
                 ),
                 const SizedBox(height: 10),
                 Text(
@@ -75,7 +75,7 @@ class TransactionHistoryScreen extends ConsumerWidget {
                     Icon(
                       Icons.lock_outline,
                       size: 44,
-                      color: scheme.onSurfaceVariant,
+                      color: scheme.onSurface.withOpacity(0.5),
                     ),
                     const SizedBox(height: 10),
                     Text(
@@ -115,7 +115,7 @@ class TransactionHistoryScreen extends ConsumerWidget {
                   Icon(
                     Icons.receipt_long_outlined,
                     size: 44,
-                    color: scheme.onSurfaceVariant,
+                    color: scheme.onSurface.withOpacity(0.5),
                   ),
                   const SizedBox(height: 10),
                   Text(
@@ -127,7 +127,7 @@ class TransactionHistoryScreen extends ConsumerWidget {
                   Text(
                     'Silakan pilih produk untuk mulai belanja.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
+                      color: scheme.onSurface.withOpacity(0.7),
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -159,14 +159,16 @@ class TransactionHistoryScreen extends ConsumerWidget {
                 final paymentType = (tx.paymentType ?? '').trim();
 
                 final (title, color, icon) = switch (normalized) {
-                  'paid' || 'settlement' => (
+                  'success' || 'paid' || 'settlement' => (
                     'Berhasil',
                     scheme.primary,
                     Icons.check_circle_outline,
                   ),
                   'failed' ||
                   'expire' ||
+                  'expired' ||
                   'cancel' ||
+                  'cancelled' ||
                   'deny' => ('Gagal', scheme.error, Icons.error_outline),
                   _ => ('Menunggu', scheme.secondary, Icons.schedule_outlined),
                 };
@@ -215,7 +217,7 @@ class TransactionHistoryScreen extends ConsumerWidget {
                               Text(
                                 '${tx.quantity}× ${tx.product.name}',
                                 style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(color: scheme.onSurfaceVariant),
+                                    ?.copyWith(color: scheme.onSurface.withOpacity(0.7)),
                               ),
                               const SizedBox(height: 2),
                               Text(
@@ -223,7 +225,7 @@ class TransactionHistoryScreen extends ConsumerWidget {
                                     ? dateText
                                     : '$dateText • $paymentType',
                                 style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(color: scheme.onSurfaceVariant),
+                                    ?.copyWith(color: scheme.onSurface.withOpacity(0.7)),
                               ),
                               const SizedBox(height: 6),
                               MoneyText(
@@ -236,7 +238,7 @@ class TransactionHistoryScreen extends ConsumerWidget {
                         ),
                         Icon(
                           Icons.chevron_right,
-                          color: scheme.onSurfaceVariant,
+                          color: scheme.onSurface.withOpacity(0.5),
                         ),
                       ],
                     ),

@@ -32,8 +32,6 @@ class MachineCardOverlay extends StatefulWidget {
 
 class _MachineCardOverlayState extends State<MachineCardOverlay> {
   Offset? _screenPosition;
-  bool _isUpdating = false;
-  bool _pending = false;
   bool _retryScheduled = false;
 
   void _onCameraTick() {
@@ -69,19 +67,14 @@ class _MachineCardOverlayState extends State<MachineCardOverlay> {
   }
 
   void _requestUpdate() {
-    if (_isUpdating) {
-      _pending = true;
-      return;
-    }
+    // Always update immediately - don't block on _isUpdating flag
+    // This ensures real-time tracking during continuous camera movement
     _updateScreenPosition();
   }
 
   Future<void> _updateScreenPosition() async {
     final controller = widget.controller;
     if (controller == null || !widget.machine.hasCoordinates) return;
-
-    _isUpdating = true;
-    _pending = false;
 
     Offset? next;
     try {
@@ -106,29 +99,32 @@ class _MachineCardOverlayState extends State<MachineCardOverlay> {
       _retryScheduled = false;
     } catch (_) {
       // Style/camera may not be ready yet; keep last known position.
-    } finally {
-      _isUpdating = false;
     }
 
     if (!mounted) return;
 
     if (next != null) {
       final prev = _screenPosition;
-      // Avoid churn: only update if the point actually changed.
-      if (prev == null || (prev - next).distance > 0.25) {
+      // Allow real-time updates - update every time position changes by > 0.5px
+      // This ensures smooth tracking without excessive rebuilds
+      if (prev == null || (prev - next).distance > 0.5) {
         setState(() => _screenPosition = next);
       }
     } else {
-      // If we never got an initial position, schedule a single retry.
+      // If we never got an initial position, retry multiple times with increasing delays
       if (_screenPosition == null && !_retryScheduled) {
         _retryScheduled = true;
-        Future.delayed(const Duration(milliseconds: 80), () {
-          if (mounted) _requestUpdate();
-        });
+        // Try 3 times: 50ms, 150ms, 300ms
+        for (var delay in [50, 150, 300]) {
+          Future.delayed(Duration(milliseconds: delay), () {
+            if (mounted && _screenPosition == null) {
+              _retryScheduled = false;
+              _requestUpdate();
+            }
+          });
+        }
       }
     }
-
-    if (_pending) _requestUpdate();
   }
 
   @override

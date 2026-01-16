@@ -9,6 +9,14 @@ import '../../../shared/widgets/money_text.dart';
 import '../../../shared/widgets/rounded_card.dart';
 import '../data/product_repository.dart';
 import '../domain/product.dart';
+import '../../../core/config/backend_config.dart';
+
+String? _resolveImageUrl(String? raw) {
+  if (raw == null || raw.trim().isEmpty) return null;
+  final v = raw.trim();
+  if (v.startsWith('http://') || v.startsWith('https://')) return v;
+  return '${BackendConfig.baseUrl}/$v';
+}
 
 class ProductListScreen extends ConsumerStatefulWidget {
   const ProductListScreen({super.key});
@@ -226,10 +234,26 @@ class _ProductListScreenState extends ConsumerState<ProductListScreen> {
                                 color: scheme.primary.withValues(alpha: 0.10),
                                 borderRadius: BorderRadius.circular(18),
                               ),
-                              child: Icon(
-                                Icons.local_cafe_outlined,
-                                color: scheme.primary,
-                              ),
+                              clipBehavior: Clip.antiAlias,
+                              child: () {
+                                final url = _resolveImageUrl(p.image);
+                                if (url == null) {
+                                  return Icon(
+                                    Icons.local_cafe_outlined,
+                                    color: scheme.primary,
+                                  );
+                                }
+                                return Image.network(
+                                  url,
+                                  width: 64,
+                                  height: 64,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Icon(
+                                    Icons.local_cafe_outlined,
+                                    color: scheme.primary,
+                                  ),
+                                );
+                              }(),
                             ),
                             const SizedBox(width: 14),
                             Expanded(

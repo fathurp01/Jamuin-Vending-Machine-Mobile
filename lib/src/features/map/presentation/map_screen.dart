@@ -359,11 +359,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       _cameraTickNotifier ??= ValueNotifier<int>(0);
 
   void _scheduleCameraTick() {
-    // Camera move can fire frequently; throttle screen-position updates.
+    // Update immediately for real-time label tracking during pan/zoom
     _cameraTickDebounce?.cancel();
-    _cameraTickDebounce = Timer(const Duration(milliseconds: 16), () {
-      _cameraTick.value = _cameraTick.value + 1;
-    });
+    _cameraTick.value = _cameraTick.value + 1;
   }
 
   void _bumpCameraTickNow() {
@@ -490,6 +488,15 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     await _addMachineDots(machines);
     await _upsertMyLocationCircles();
     _bumpCameraTickNow();
+    
+    // Trigger additional updates with delays to ensure all labels get positioned
+    // Some labels may fail initial toScreenLocation() and need retries
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (mounted) _bumpCameraTickNow();
+    });
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (mounted) _bumpCameraTickNow();
+    });
   }
 
   @override

@@ -28,6 +28,20 @@ class Product {
   final List<MachineProductStock> machineProducts;
 
   factory Product.fromJson(Map<String, Object?> json) {
+    // Helper function to safely parse int from dynamic value
+    int toInt(Object? value, {int fallback = 0}) {
+      if (value == null) return fallback;
+      if (value is int) return value;
+      if (value is num) return value.toInt();
+      if (value is String) {
+        final parsed = int.tryParse(value);
+        if (parsed != null) return parsed;
+        final parsedDouble = double.tryParse(value);
+        if (parsedDouble != null) return parsedDouble.toInt();
+      }
+      return fallback;
+    }
+
     // Parse machineProducts array if present
     final machineProductsRaw = json['machineProducts'] as List<dynamic>?;
     final machineProducts = <MachineProductStock>[];
@@ -40,7 +54,7 @@ class Product {
     }
 
     return Product(
-      id: ((json['id'] as num?) ?? 0).toInt().toString(),
+      id: toInt(json['id']).toString(),
       name: (json['name'] as String?) ?? (json['nama'] as String?) ?? '',
       description:
           (json['deskripsi'] as String?) ??
@@ -48,9 +62,8 @@ class Product {
           '',
       benefits:
           (json['manfaat'] as String?) ?? (json['benefits'] as String?) ?? '',
-      price: ((json['harga'] as num?) ?? (json['price'] as num?) ?? 0).toInt(),
-      stock: ((json['stok'] as num?) ?? (json['stock'] as num?) ?? 0)
-          .toInt(), // Fallback for compatibility
+      price: toInt(json['harga'] ?? json['price']),
+      stock: toInt(json['stok'] ?? json['stock']),
       image: (json['gambar'] as String?) ?? (json['image'] as String?),
       machineProducts: machineProducts,
     );
@@ -97,11 +110,25 @@ class MachineProductStock {
   final int stok;
 
   factory MachineProductStock.fromJson(Map<String, dynamic> json) {
+    // Helper function to safely parse int from dynamic value
+    int toInt(Object? value, {int fallback = 0}) {
+      if (value == null) return fallback;
+      if (value is int) return value;
+      if (value is num) return value.toInt();
+      if (value is String) {
+        final parsed = int.tryParse(value);
+        if (parsed != null) return parsed;
+        final parsedDouble = double.tryParse(value);
+        if (parsedDouble != null) return parsedDouble.toInt();
+      }
+      return fallback;
+    }
+
     return MachineProductStock(
-      id: (json['id'] as num?)?.toInt() ?? 0,
-      machineId: (json['machineId'] as num?)?.toInt() ?? 0,
-      productId: (json['productId'] as num?)?.toInt() ?? 0,
-      stok: (json['stok'] as num?)?.toInt() ?? 0,
+      id: toInt(json['id']),
+      machineId: toInt(json['machineId']),
+      productId: toInt(json['productId']),
+      stok: toInt(json['stok']),
     );
   }
 }
