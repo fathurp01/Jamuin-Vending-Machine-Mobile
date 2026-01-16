@@ -7,7 +7,7 @@ final class BackendConfig {
   /// Physical device: http://YOUR_PC_IP:3000
   static const String baseUrl = String.fromEnvironment(
     'BACKEND_BASE_URL',
-    defaultValue: 'http://192.168.100.194:3000',
+    defaultValue: 'https://icicled-unmischievously-shayna.ngrok-free.dev',
   );
 
   static const String platform = 'mobile';

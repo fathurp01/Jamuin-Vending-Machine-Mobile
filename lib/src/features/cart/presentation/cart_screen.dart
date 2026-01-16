@@ -300,10 +300,6 @@ class CartScreen extends ConsumerWidget {
                   child: Column(
                     children: [
                       _Line(label: 'Subtotal', value: cart.subtotal),
-                      const SizedBox(height: 8),
-                      _Line(label: 'Biaya layanan', value: cart.serviceFee),
-                      const SizedBox(height: 8),
-                      _Line(label: 'Pajak (11%)', value: cart.tax),
                       const Divider(height: 22),
                       Row(
                         children: [
@@ -364,14 +360,14 @@ class _Line extends StatelessWidget {
           label,
           style: Theme.of(
             context,
-          ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+          ).textTheme.bodySmall?.copyWith(color: scheme.onSurface.withOpacity(0.7)),
         ),
         const Spacer(),
         MoneyText(
           value,
           style: Theme.of(
             context,
-          ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+          ).textTheme.bodySmall?.copyWith(color: scheme.onSurface.withOpacity(0.7)),
         ),
       ],
     );

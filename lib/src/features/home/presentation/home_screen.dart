@@ -95,7 +95,7 @@ class HomeScreen extends ConsumerWidget {
                         Text(
                           'Poin',
                           style: Theme.of(context).textTheme.labelLarge
-                              ?.copyWith(color: scheme.onSurfaceVariant),
+                              ?.copyWith(color: scheme.onSurface.withOpacity(0.7)),
                         ),
                         const SizedBox(height: 6),
                         Text(
@@ -107,7 +107,7 @@ class HomeScreen extends ConsumerWidget {
                         Text(
                           'Fitur poin akan hadir di update berikutnya.',
                           style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: scheme.onSurfaceVariant),
+                              ?.copyWith(color: scheme.onSurface.withOpacity(0.7)),
                         ),
                       ],
                     ),
@@ -221,7 +221,7 @@ class HomeScreen extends ConsumerWidget {
                                     overflow: TextOverflow.ellipsis,
                                     style: Theme.of(context).textTheme.bodySmall
                                         ?.copyWith(
-                                          color: scheme.onSurfaceVariant,
+                                          color: scheme.onSurface.withOpacity(0.7),
                                         ),
                                   ),
                                   const SizedBox(height: 8),
@@ -239,7 +239,7 @@ class HomeScreen extends ConsumerWidget {
                                       const Spacer(),
                                       Icon(
                                         Icons.chevron_right,
-                                        color: scheme.onSurfaceVariant,
+                                        color: scheme.onSurface.withOpacity(0.5),
                                       ),
                                     ],
                                   ),
@@ -275,7 +275,7 @@ class HomeScreen extends ConsumerWidget {
                         Text(
                           'Pilih mesin, tambah item, lalu checkout dengan cepat.',
                           style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: scheme.onSurfaceVariant),
+                              ?.copyWith(color: scheme.onSurface.withOpacity(0.7)),
                         ),
                       ],
                     ),
@@ -292,7 +292,7 @@ class HomeScreen extends ConsumerWidget {
               session.role == UserRole.admin ? 'Mode admin' : 'Mode pelanggan',
               style: Theme.of(
                 context,
-              ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+              ).textTheme.bodySmall?.copyWith(color: scheme.onSurface.withOpacity(0.6)),
               textAlign: TextAlign.center,
             ),
           ],
@@ -351,7 +351,7 @@ class _ActionTile extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
+                      color: scheme.onSurface.withOpacity(0.7),
                     ),
                   ),
                 ],
@@ -442,7 +442,7 @@ class _BannerCarouselState extends State<_BannerCarousel> {
                             Text(
                               it.subtitle,
                               style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(color: scheme.onSurfaceVariant),
+                                  ?.copyWith(color: scheme.onSurface.withOpacity(0.7)),
                             ),
                           ],
                         ),
@@ -467,7 +467,7 @@ class _BannerCarouselState extends State<_BannerCarousel> {
               decoration: BoxDecoration(
                 color: i == _index
                     ? scheme.primary
-                    : scheme.onSurfaceVariant.withValues(alpha: 0.35),
+                    : scheme.onSurface.withOpacity(0.25),
                 borderRadius: BorderRadius.circular(999),
               ),
             ),

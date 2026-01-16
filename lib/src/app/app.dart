@@ -14,6 +14,7 @@ class JamuinApp extends ConsumerWidget {
     return MaterialApp.router(
       title: 'Jamuin',
       theme: AppTheme.light(),
+      themeMode: ThemeMode.light, // Force light theme
       routerConfig: router,
       debugShowCheckedModeBanner: false,
     );

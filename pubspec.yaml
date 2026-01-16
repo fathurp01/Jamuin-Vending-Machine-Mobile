@@ -62,6 +62,9 @@ dependencies:
   # Formatting
   intl: ^0.19.0
 
+  # Google Fonts for custom typography (Inter & Poppins)
+  google_fonts: ^6.2.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

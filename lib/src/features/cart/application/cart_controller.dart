@@ -12,10 +12,7 @@ class CartState {
   int get itemCount => items.values.fold(0, (sum, e) => sum + e.quantity);
   int get subtotal => items.values.fold(0, (sum, e) => sum + e.lineTotal);
 
-  // Keep it simple & transparent.
-  int get serviceFee => subtotal == 0 ? 0 : 2000;
-  int get tax => (subtotal * 0.11).round();
-  int get total => subtotal + serviceFee + tax;
+  int get total => subtotal;
 
   CartState copyWith({Map<String, CartItem>? items}) =>
       CartState(items: items ?? this.items);
@@ -75,6 +72,13 @@ class CartController extends Notifier<CartState> {
   void add(Product product, {int quantity = 1}) {
     final next = Map<String, CartItem>.from(state.items);
     final existing = next[product.id];
+    
+    // Enforce single product type in cart
+    // If cart has items and adding a different product, clear cart first
+    if (existing == null && next.isNotEmpty) {
+      next.clear();
+    }
+    
     if (existing == null) {
       next[product.id] = CartItem(
         product: product,
